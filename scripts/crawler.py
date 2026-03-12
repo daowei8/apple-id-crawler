@@ -12,7 +12,8 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 
-import requests
+
+from curl_cffi import requests
 from bs4 import BeautifulSoup
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -113,10 +114,11 @@ HEADERS = {
 def uid(email: str) -> str:
     return hashlib.md5(email.lower().encode()).hexdigest()[:12]
 
-def fetch(url: str, timeout: int = 15, retries: int = 3) -> Optional[requests.Response]:
+def fetch(url: str, timeout: int = 15, retries: int = 3):
     for i in range(retries):
         try:
-            r = requests.get(url, headers=HEADERS, timeout=timeout, allow_redirects=True)
+            # 这里的 impersonate="chrome120" 就是我们的隐身衣，伪装成真实浏览器
+            r = requests.get(url, headers=HEADERS, timeout=timeout, allow_redirects=True, impersonate="chrome120")
             r.raise_for_status()
             return r
         except Exception as e:

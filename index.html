@@ -6,179 +6,185 @@
 <title>共享 Apple ID</title>
 <style>
 /* ══ 暗色 ══ */
-:root {
-  --bg:           #000;
-  --surface:      rgba(255,255,255,.05);
-  --surface-high: rgba(255,255,255,.09);
-  --border:       rgba(255,255,255,.08);
-  --border-high:  rgba(255,255,255,.15);
-  --text:         #f5f5f7;
-  --text-sec:     rgba(245,245,247,.6);
-  --text-ter:     rgba(245,245,247,.35);
-  --blue:         #0071e3;
-  --green:        #30d158;
-  --red:          #ff453a;
-  --orange:       #ff9f0a;
-  --nav-bg:       rgba(0,0,0,.78);
-  --pwd-bg:       rgba(255,255,255,.05);
-  --glow:         rgba(0,113,227,.1);
-  --r:10px; --R:16px;
+:root{
+  --bg:#000;--bg2:#0a0a0a;
+  --card:rgba(255,255,255,.055);--card-h:rgba(255,255,255,.08);
+  --border:rgba(255,255,255,.08);--border-h:rgba(255,255,255,.15);
+  --text:#f5f5f7;--t2:rgba(245,245,247,.6);--t3:rgba(245,245,247,.35);
+  --blue:#0071e3;--green:#30d158;--red:#ff453a;--orange:#ff9f0a;
+  --nav-bg:rgba(0,0,0,.78);--mono:"SF Mono","Menlo",monospace;
+  --r:12px;--R:18px;
 }
 /* ══ 亮色 ══ */
-[data-theme="light"] {
-  --bg:           #f5f5f7;
-  --surface:      rgba(0,0,0,.04);
-  --surface-high: rgba(0,0,0,.07);
-  --border:       rgba(0,0,0,.1);
-  --border-high:  rgba(0,0,0,.2);
-  --text:         #1d1d1f;
-  --text-sec:     rgba(29,29,31,.6);
-  --text-ter:     rgba(29,29,31,.38);
-  --green:        #1c8a38;
-  --red:          #d93025;
-  --orange:       #c85000;
-  --nav-bg:       rgba(245,245,247,.85);
-  --pwd-bg:       rgba(0,0,0,.04);
-  --glow:         rgba(0,113,227,.05);
+[data-theme=light]{
+  --bg:#f2f2f7;--bg2:#fff;
+  --card:rgba(255,255,255,.9);--card-h:rgba(255,255,255,1);
+  --border:rgba(0,0,0,.08);--border-h:rgba(0,0,0,.15);
+  --text:#1c1c1e;--t2:rgba(28,28,30,.6);--t3:rgba(28,28,30,.35);
+  --green:#1a8a35;--red:#c0392b;--orange:#b06000;
+  --nav-bg:rgba(242,242,247,.88);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{
   background:var(--bg);color:var(--text);
-  font-family:-apple-system,"SF Pro Display","PingFang SC","Helvetica Neue",sans-serif;
-  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden;
-  transition:background .3s,color .3s;
+  font-family:-apple-system,"SF Pro Text","PingFang SC","Helvetica Neue",sans-serif;
+  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  overflow-x:hidden;transition:background .25s,color .25s;
 }
 body::before{
-  content:'';position:fixed;top:-200px;left:50%;transform:translateX(-50%);
-  width:800px;height:600px;
-  background:radial-gradient(ellipse,var(--glow) 0%,transparent 70%);
-  pointer-events:none;z-index:0;transition:background .3s;
+  content:'';position:fixed;top:-160px;left:50%;transform:translateX(-50%);
+  width:700px;height:500px;
+  background:radial-gradient(ellipse,rgba(0,113,227,.08) 0%,transparent 70%);
+  pointer-events:none;z-index:0;
 }
 
-/* ── 导航 ── */
+/* ── nav ── */
 nav{
-  position:sticky;top:0;z-index:100;height:52px;
+  position:sticky;top:0;z-index:100;height:54px;
   background:var(--nav-bg);
-  backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);
+  backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);
   border-bottom:.5px solid var(--border);
-  display:flex;align-items:center;padding:0 24px;gap:10px;
-  transition:background .3s,border-color .3s;
+  display:flex;align-items:center;padding:0 20px;gap:10px;
+  transition:background .25s;
 }
-.nav-logo{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:600;letter-spacing:-.3px;flex:1}
-.nav-count{font-size:12px;color:var(--text-sec);background:var(--surface);border:.5px solid var(--border-high);border-radius:20px;padding:4px 12px;display:flex;align-items:center;gap:5px;white-space:nowrap;transition:background .3s}
-.nav-count em{color:var(--green);font-style:normal;font-weight:600}
-.theme-btn{width:34px;height:34px;border-radius:50%;background:var(--surface);border:.5px solid var(--border);color:var(--text-sec);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .2s;flex-shrink:0}
-.theme-btn:hover{background:var(--surface-high);color:var(--text);transform:rotate(20deg)}
-.nav-btn{background:var(--blue);color:#fff;border:none;border-radius:980px;padding:6px 16px;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s;white-space:nowrap;font-family:inherit}
-.nav-btn:hover{opacity:.85}.nav-btn:active{opacity:.7;transform:scale(.97)}
+.nav-logo{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;letter-spacing:-.4px;flex:1;min-width:0}
+.nav-logo svg{flex-shrink:0}
+.nav-logo span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--t2);background:var(--card);border:.5px solid var(--border-h);border-radius:20px;padding:3px 11px;white-space:nowrap;flex-shrink:0}
+.badge b{color:var(--green);font-weight:700}
+.icon-btn{width:34px;height:34px;border-radius:50%;background:var(--card);border:.5px solid var(--border);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .2s;flex-shrink:0}
+.icon-btn:hover{background:var(--card-h);color:var(--text)}
+.refresh-btn{background:var(--blue);color:#fff;border:none;border-radius:980px;padding:0 16px;height:34px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;transition:opacity .15s;flex-shrink:0}
+.refresh-btn:hover{opacity:.85}.refresh-btn:active{opacity:.7;transform:scale(.97)}
 
-/* ── 主容器 ── */
-main{max-width:860px;margin:0 auto;padding:24px 20px 80px;position:relative;z-index:1}
+/* ── layout ── */
+main{max-width:900px;margin:0 auto;padding:20px 16px 80px;position:relative;z-index:1}
 
-/* ── 警告 ── */
-.warn-stack{display:grid;gap:6px;margin-bottom:14px}
-.warn{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:var(--r);font-size:13px;font-weight:500;line-height:1.55;animation:fadeUp .4s ease both;transition:background .3s}
-.warn:nth-child(2){animation-delay:.06s}.warn:nth-child(3){animation-delay:.12s}
-.warn.r{background:rgba(255,69,58,.1);border:.5px solid rgba(255,69,58,.3)}
-.warn.g{background:rgba(48,209,88,.08);border:.5px solid rgba(48,209,88,.25)}
-.warn.b{background:rgba(0,113,227,.1);border:.5px solid rgba(0,113,227,.3)}
-[data-theme="dark"] .warn.r{color:#ff6b63}[data-theme="dark"] .warn.g{color:#32d74b}[data-theme="dark"] .warn.b{color:#409cff}
-[data-theme="light"] .warn.r{color:#c0392b}[data-theme="light"] .warn.g{color:#1a7a30}[data-theme="light"] .warn.b{color:#0060c0}
-.warn strong{font-weight:700}
+/* ── 警告横幅 ── */
+.warn-bar{
+  display:flex;align-items:center;gap:10px;
+  padding:13px 16px;border-radius:var(--r);
+  background:rgba(255,69,58,.1);border:.5px solid rgba(255,69,58,.3);
+  color:#ff6b63;font-size:13px;font-weight:500;line-height:1.5;
+  margin-bottom:12px;animation:fadeUp .4s ease both;
+}
+[data-theme=light] .warn-bar{color:#b02020}
+.warn-bar strong{font-weight:700}
+.warn-icon{font-size:18px;flex-shrink:0}
 
-/* ── 折叠卡片 ── */
-.card-block{background:var(--surface);border:.5px solid var(--border);border-radius:var(--R);overflow:hidden;margin-bottom:10px;animation:fadeUp .4s ease both;transition:background .3s,border-color .3s}
-.card-block:nth-child(2){animation-delay:.16s}.card-block:nth-child(3){animation-delay:.22s}
-.block-head{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;transition:background .15s}
-.block-head:hover{background:var(--surface-high)}
-.block-head-left{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600}
-.icon-box{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.ib-y{background:rgba(255,214,10,.15)}.ib-b{background:rgba(0,113,227,.15)}
-.chev{color:var(--text-ter);font-size:10px;transition:transform .25s cubic-bezier(.4,0,.2,1)}
-.chev.open{transform:rotate(180deg)}
-.block-body{display:none;border-top:.5px solid var(--border);padding:16px 18px;transition:border-color .3s}
-.block-body.open{display:block}
-.notice-list{list-style:none;display:grid;gap:8px}
-.notice-list li{display:flex;gap:10px;font-size:13px;color:var(--text-sec);line-height:1.6}
-.notice-list li::before{content:"📣";flex-shrink:0}
-.guide-steps{display:grid;gap:18px}
-.guide-step{display:flex;gap:14px;align-items:flex-start}
-.step-badge{width:24px;height:24px;border-radius:50%;flex-shrink:0;background:var(--blue);color:#fff;font-size:12px;font-weight:700;margin-top:2px;display:flex;align-items:center;justify-content:center}
-.step-text{font-size:13px;color:var(--text-sec);line-height:1.65}
-.step-text strong{color:var(--text);font-weight:600}
-.step-text .danger{color:var(--red);font-weight:600}
+/* ── 折叠块 ── */
+.collapse{background:var(--card);border:.5px solid var(--border);border-radius:var(--R);overflow:hidden;margin-bottom:10px;transition:background .25s}
+.collapse-head{padding:13px 17px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;transition:background .15s}
+.collapse-head:hover{background:var(--card-h)}
+.collapse-title{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600}
+.c-icon{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.c-y{background:rgba(255,214,10,.15)}.c-b{background:rgba(0,113,227,.15)}
+.c-arrow{color:var(--t3);font-size:10px;transition:transform .25s}
+.c-arrow.open{transform:rotate(180deg)}
+.collapse-body{display:none;border-top:.5px solid var(--border);padding:15px 17px}
+.collapse-body.open{display:block}
+.notice-list{list-style:none;display:grid;gap:7px}
+.notice-list li{display:flex;gap:9px;font-size:13px;color:var(--t2);line-height:1.6}
+.notice-list li::before{content:"•";color:var(--blue);flex-shrink:0;font-weight:700}
+.steps{display:grid;gap:16px}
+.step{display:flex;gap:12px;align-items:flex-start}
+.step-n{width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:700;margin-top:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.step-t{font-size:13px;color:var(--t2);line-height:1.65}
+.step-t b{color:var(--text);font-weight:600}
+.step-t .danger{color:var(--red);font-weight:700}
 
-/* ── 搜索 ── */
-.search-wrap{position:relative;margin-bottom:14px;animation:fadeUp .4s ease .28s both}
-.search-wrap input{width:100%;background:var(--surface);border:.5px solid var(--border);border-radius:var(--r);padding:12px 16px 12px 40px;font-size:15px;color:var(--text);font-family:inherit;outline:none;transition:border .2s,background .2s,color .3s}
-.search-wrap input::placeholder{color:var(--text-ter)}
-.search-wrap input:focus{border-color:var(--blue);background:rgba(0,113,227,.05)}
-.s-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-ter);pointer-events:none}
+/* ── 工具栏 ── */
+.toolbar{display:flex;gap:10px;margin-bottom:14px;align-items:center;animation:fadeUp .4s ease .22s both}
+.search-box{flex:1;position:relative}
+.search-box input{
+  width:100%;background:var(--card);border:.5px solid var(--border);border-radius:var(--r);
+  padding:11px 14px 11px 38px;font-size:14px;color:var(--text);font-family:inherit;
+  outline:none;transition:border .2s,background .2s;
+}
+.search-box input::placeholder{color:var(--t3)}
+.search-box input:focus{border-color:var(--blue);background:rgba(0,113,227,.05)}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none}
+.count-info{font-size:13px;color:var(--t3);white-space:nowrap}
 
-/* ── 账号列表 ── */
-.list-wrap{background:var(--surface);border:.5px solid var(--border);border-radius:var(--R);overflow:hidden;animation:fadeUp .4s ease .34s both;transition:background .3s,border-color .3s}
-.account-row{display:flex;align-items:center;padding:14px 18px;gap:14px;border-bottom:.5px solid var(--border);transition:background .15s,border-color .3s}
-.account-row:last-child{border-bottom:none}
-.account-row:hover{background:var(--surface-high)}
+/* ── 账号卡片网格 ── */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;animation:fadeUp .4s ease .3s both}
 
-/* 序号 */
-.row-idx{font-size:12px;color:var(--text-ter);width:22px;text-align:right;flex-shrink:0}
+.id-card{
+  background:var(--card);border:.5px solid var(--border);border-radius:var(--R);
+  padding:16px;display:flex;flex-direction:column;gap:10px;
+  transition:background .15s,border-color .2s,transform .15s,box-shadow .15s;
+  position:relative;overflow:hidden;
+}
+.id-card:hover{background:var(--card-h);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,.2)}
+[data-theme=light] .id-card:hover{box-shadow:0 4px 20px rgba(0,0,0,.08)}
 
-/* 信息区 */
-.row-info{flex:1;min-width:0}
-.row-email{font-size:14px;font-weight:500;word-break:break-all;letter-spacing:-.1px;margin-bottom:4px}
-.row-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-
-/* 状态徽章 */
-.status-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;border-radius:20px;padding:2px 8px}
-.status-ok{background:rgba(48,209,88,.12);color:var(--green)}
-.status-err{background:rgba(255,69,58,.12);color:var(--red)}
-.status-unknown{background:rgba(255,159,10,.1);color:var(--orange)}
+/* 卡片顶部：序号+状态+地区 */
+.card-top{display:flex;align-items:center;gap:8px}
+.card-num{font-size:11px;color:var(--t3);font-weight:500}
+.status-ok{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--green);background:rgba(48,209,88,.1);border-radius:20px;padding:2px 9px}
+.status-err{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--red);background:rgba(255,69,58,.1);border-radius:20px;padding:2px 9px}
 .dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
+.card-time{font-size:11px;color:var(--t3);margin-left:auto}
 
-/* 检查时间 */
-.row-time{font-size:11px;color:var(--text-ter)}
-
-/* 右侧操作区 */
-.row-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
-
-/* 密码框 */
-.pwd-wrap{display:flex;align-items:center;gap:0;background:var(--pwd-bg);border:.5px solid var(--border-high);border-radius:var(--r);overflow:hidden;transition:background .3s,border-color .3s}
-.pwd-text{font-family:"SF Mono","Menlo",monospace;font-size:13px;padding:5px 10px;min-width:100px;text-align:center;letter-spacing:.3px;white-space:nowrap}
-.pwd-eye{background:none;border:none;border-left:.5px solid var(--border-high);padding:5px 8px;cursor:pointer;color:var(--text-ter);font-size:12px;transition:color .15s;flex-shrink:0}
-.pwd-eye:hover{color:var(--text)}
+/* 账号行 */
+.card-row{display:flex;align-items:center;gap:8px}
+.row-label{font-size:11px;color:var(--t3);font-weight:500;width:28px;flex-shrink:0}
+.row-val{flex:1;min-width:0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-val.mono{font-family:var(--mono);letter-spacing:.3px;font-size:12px}
+.pwd-dots{letter-spacing:2px;font-size:14px;color:var(--t2)}
 
 /* 操作按钮 */
-.btn-group{display:flex;gap:5px}
-.copy-btn{border:none;border-radius:980px;padding:5px 12px;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s,transform .1s,background .2s;white-space:nowrap;font-family:inherit;color:#fff}
-.copy-btn:hover{opacity:.85}.copy-btn:active{transform:scale(.95)}
-.copy-btn.btn-acc{background:#636366}
-.copy-btn.btn-pwd{background:var(--blue)}
-.copy-btn.ok{background:var(--green) !important}
+.card-actions{display:flex;gap:7px;padding-top:4px;border-top:.5px solid var(--border)}
+.act-btn{flex:1;border:none;border-radius:980px;padding:8px 0;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit}
+.act-btn:active{transform:scale(.96)}
+.btn-acc{background:rgba(255,255,255,.08);color:var(--text)}
+.btn-acc:hover{background:rgba(255,255,255,.14)}
+[data-theme=light] .btn-acc{background:rgba(0,0,0,.06);color:var(--text)}
+[data-theme=light] .btn-acc:hover{background:rgba(0,0,0,.1)}
+.btn-pwd{background:var(--blue);color:#fff}
+.btn-pwd:hover{opacity:.85}
+.btn-eye{width:32px;height:32px;border:none;border-radius:50%;background:var(--card-h);color:var(--t2);cursor:pointer;font-size:14px;transition:all .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.btn-eye:hover{color:var(--text)}
+.act-btn.copied,.btn-pwd.copied{background:var(--green) !important;color:#fff}
+
+/* ── 提示 ── */
+.no-rocket-tip{
+  margin-top:6px;padding:8px 12px;border-radius:8px;
+  background:rgba(255,159,10,.08);border:.5px solid rgba(255,159,10,.25);
+  color:var(--orange);font-size:11px;line-height:1.5;
+}
 
 /* ── 翻页 ── */
-.pager{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:18px;flex-wrap:wrap}
-.pager button{background:var(--surface);border:.5px solid var(--border);color:var(--text-sec);width:34px;height:34px;border-radius:var(--r);cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
+.pager{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:20px;flex-wrap:wrap}
+.pager button{background:var(--card);border:.5px solid var(--border);color:var(--t2);width:36px;height:36px;border-radius:var(--r);cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
 .pager button:hover:not(:disabled){border-color:var(--blue);color:var(--blue);background:rgba(0,113,227,.08)}
 .pager button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
 .pager button:disabled{opacity:.25;cursor:default}
-.pager-info{font-size:12px;color:var(--text-ter);padding:0 4px}
+.pager-info{font-size:12px;color:var(--t3);padding:0 6px}
 
-/* ── 状态 ── */
-.status-box{text-align:center;padding:60px 0;color:var(--text-ter);font-size:14px}
-.spin{width:28px;height:28px;margin:0 auto 14px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+/* ── 空/加载 ── */
+.empty{text-align:center;padding:80px 20px;color:var(--t3);font-size:14px;grid-column:1/-1}
+.spin{width:30px;height:30px;margin:0 auto 16px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
-footer{text-align:center;padding:20px;font-size:12px;color:var(--text-ter);position:relative;z-index:1}
+footer{text-align:center;padding:24px 16px;font-size:12px;color:var(--t3);position:relative;z-index:1}
 
-@media(max-width:600px){
-  nav{padding:0 14px;gap:8px}.nav-logo{font-size:15px}
-  main{padding:18px 12px 60px}
-  .account-row{padding:12px 14px;flex-wrap:wrap;gap:10px}
-  .row-right{width:100%;justify-content:flex-end}
-  .pwd-text{min-width:80px;font-size:12px}
+/* ── 响应式 ── */
+@media(max-width:500px){
+  nav{padding:0 14px;gap:8px}
+  .nav-logo{font-size:15px}
+  .badge{display:none}
+  main{padding:16px 12px 70px}
+  .grid{grid-template-columns:1fr}
+  .id-card{padding:14px}
+}
+@media(min-width:700px){
+  .grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(min-width:1000px){
+  .grid{grid-template-columns:repeat(3,1fr)}
 }
 </style>
 </head>
@@ -189,225 +195,230 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--text-ter);posit
     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
       <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
     </svg>
-    共享 Apple ID
+    <span>共享 Apple ID</span>
   </div>
-  <div class="nav-count">共 <em id="hTotal">-</em> 个账号</div>
-  <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切换亮/暗色">🌙</button>
-  <button class="nav-btn" onclick="loadData()">↻ 刷新</button>
+  <div class="badge">共 <b id="hTotal">-</b> 个账号</div>
+  <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="切换亮/暗色">🌙</button>
+  <button class="refresh-btn" onclick="loadData()">↻ 刷新</button>
 </nav>
 
 <main>
-  <div class="warn-stack">
-    <div class="warn r"><span>🟥</span><span><strong>严重警告！</strong>请不要将共享账号登陆到手机【设置】或【iCloud】里！否则会被坏人<strong>锁机、勒索、敲诈</strong>！只能在 <strong>App Store</strong> 内登录！</span></div>
-    <div class="warn g"><span>🟩</span><span><strong>严重警告！</strong>请不要将共享账号登陆到手机【设置】或【iCloud】里！否则会被坏人<strong>锁机、勒索、敲诈</strong>！只能在 <strong>App Store</strong> 内登录！</span></div>
-    <div class="warn b"><span>🟦</span><span><strong>严重警告！</strong>请不要将共享账号登陆到手机【设置】或【iCloud】里！否则会被坏人<strong>锁机、勒索、敲诈</strong>！只能在 <strong>App Store</strong> 内登录！</span></div>
+  <!-- 警告 -->
+  <div class="warn-bar" style="animation-delay:0s">
+    <span class="warn-icon">🚨</span>
+    <span><strong>严重警告！</strong>只能在 <strong>App Store</strong> 内登录！切勿登录手机【设置】或【iCloud】，否则会被<strong>锁机勒索</strong>！</span>
   </div>
 
-  <div class="card-block">
-    <div class="block-head" onclick="toggle('notice')">
-      <div class="block-head-left"><div class="icon-box ib-y">📋</div>使用须知</div>
-      <span class="chev" id="notice-chev">▼</span>
+  <!-- 须知 -->
+  <div class="collapse" style="animation:fadeUp .4s ease .08s both">
+    <div class="collapse-head" onclick="toggleSection('notice')">
+      <div class="collapse-title"><div class="c-icon c-y">📋</div>使用须知</div>
+      <span class="c-arrow" id="notice-arrow">▼</span>
     </div>
-    <div class="block-body" id="notice-body">
+    <div class="collapse-body" id="notice-body">
       <ul class="notice-list">
-        <li>共享账号随时会失效，如遇失效请点右上角刷新重新获取</li>
-        <li>仅供娱乐，请勿用于违法用途</li>
-        <li>如遇密码错误请刷新页面重新获取</li>
-        <li>此账号由机器 + 人工自动维护，可用度较高</li>
-        <li>账号每分钟检测一次，登录商店请选择「其他选项 → 不升级」否则立刻重置密码！</li>
-        <li>账号内购买了部分软件，如提示未购买，直接点击下载即可</li>
+        <li>共享账号随时可能失效，失效请点右上角刷新重新获取</li>
+        <li>仅供下载 App Store 应用，请勿用于任何违法用途</li>
+        <li>如遇密码错误请刷新页面，所有账号均自动检测可用性</li>
+        <li>登录商店时请选择「其他选项 → 不升级」，否则密码立刻重置！</li>
+        <li>如提示需要付费，可直接点击下载，账号内已购买部分应用</li>
+        <li>⚠️ 如账号未购买小火箭，请更换其他账号重试</li>
       </ul>
     </div>
   </div>
 
-  <div class="card-block" style="margin-bottom:20px">
-    <div class="block-head" onclick="toggle('guide')">
-      <div class="block-head-left"><div class="icon-box ib-b">📖</div>使用教程</div>
-      <span class="chev" id="guide-chev">▼</span>
+  <!-- 教程 -->
+  <div class="collapse" style="animation:fadeUp .4s ease .14s both;margin-bottom:18px">
+    <div class="collapse-head" onclick="toggleSection('guide')">
+      <div class="collapse-title"><div class="c-icon c-b">📖</div>使用教程</div>
+      <span class="c-arrow" id="guide-arrow">▼</span>
     </div>
-    <div class="block-body" id="guide-body">
-      <div class="guide-steps">
-        <div class="guide-step"><div class="step-badge">1</div><div class="step-text">在 iPhone / iPad 找到 <strong>「App Store」</strong> 并打开，点击右上角 <strong>「头像图标」</strong>，下滑到底，点 <strong>「退出登录」</strong>。</div></div>
-        <div class="guide-step"><div class="step-badge">2</div><div class="step-text">复制下方账号和密码，在 App Store 登录界面输入，点击「登录」。</div></div>
-        <div class="guide-step"><div class="step-badge">3</div><div class="step-text">如出现 <strong>「Apple ID 安全」</strong> 提示，点 <strong>「其他选项」→「不升级」</strong>。<span class="danger"> 千万不要点升级！</span></div></div>
-        <div class="guide-step"><div class="step-badge">4</div><div class="step-text">搜索软件，如提示付费可忽视，<strong>直接点下载</strong>即可。</div></div>
-        <div class="guide-step"><div class="step-badge">5</div><div class="step-text">下载完成后请 <strong>退出共享账号</strong>，换回自己的 Apple ID 🏄</div></div>
+    <div class="collapse-body" id="guide-body">
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-t">打开 <b>App Store</b>，点右上角头像，下滑到底部点 <b>「退出登录」</b></div></div>
+        <div class="step"><div class="step-n">2</div><div class="step-t">复制下方账号和密码，在 App Store 登录界面输入</div></div>
+        <div class="step"><div class="step-n">3</div><div class="step-t">弹出安全提示时，点 <b>「其他选项」→「不升级」</b><span class="danger"> 千万不要点升级！</span></div></div>
+        <div class="step"><div class="step-n">4</div><div class="step-t">搜索需要的 App，直接点下载（提示付费也可下载）</div></div>
+        <div class="step"><div class="step-n">5</div><div class="step-t">下载完成后立即 <b>退出共享账号</b>，换回自己的 Apple ID 🎉</div></div>
       </div>
     </div>
   </div>
 
-  <div class="search-wrap">
-    <svg class="s-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    <input id="searchInput" type="text" placeholder="搜索账号邮箱…" oninput="onFilter()"/>
+  <!-- 工具栏 -->
+  <div class="toolbar">
+    <div class="search-box">
+      <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="searchInput" type="text" placeholder="搜索邮箱…" oninput="onFilter()"/>
+    </div>
+    <span class="count-info" id="countInfo"></span>
   </div>
 
-  <div class="list-wrap"><div id="list"><div class="status-box"><div class="spin"></div>正在加载账号数据…</div></div></div>
+  <!-- 账号网格 -->
+  <div class="grid" id="grid">
+    <div class="empty"><div class="spin"></div>正在加载账号数据…</div>
+  </div>
   <div class="pager" id="pager"></div>
 </main>
 
 <footer id="footer"></footer>
 
 <script>
-// ⚠️ 把 YOUR_USER 换成 GitHub 用户名，YOUR_REPO 换成仓库名
+// ⚠️ 已自动填入你的仓库地址，无需修改
 const DATA_URL = 'https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/apple_ids.json';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 18;
 let all = [], filtered = [], page = 1;
-let pwdVisible = {};  // 记录哪些账号密码可见
+let pwdVisible = {};
 
 /* ══ 主题 ══ */
-function initTheme() {
-  const saved  = localStorage.getItem('apple-id-theme');
-  const prefer = window.matchMedia('(prefers-color-scheme:light)').matches ? 'light' : 'dark';
-  setTheme(saved || prefer, false);
+function initTheme(){
+  const s=localStorage.getItem('aid-theme');
+  const p=window.matchMedia('(prefers-color-scheme:light)').matches?'light':'dark';
+  applyTheme(s||p,false);
 }
-function setTheme(t, save=true) {
-  document.documentElement.setAttribute('data-theme', t);
-  document.getElementById('themeBtn').textContent = t === 'dark' ? '🌙' : '☀️';
-  if (save) localStorage.setItem('apple-id-theme', t);
+function applyTheme(t,save=true){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeBtn').textContent=t==='dark'?'🌙':'☀️';
+  if(save) localStorage.setItem('aid-theme',t);
 }
-function toggleTheme() {
-  setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+function toggleTheme(){
+  applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');
 }
 
 /* ══ 折叠 ══ */
-function toggle(id) {
+function toggleSection(id){
   document.getElementById(id+'-body').classList.toggle('open');
-  document.getElementById(id+'-chev').classList.toggle('open');
+  document.getElementById(id+'-arrow').classList.toggle('open');
 }
 
-/* ══ 数据 ══ */
-async function loadData() {
-  document.getElementById('list').innerHTML = '<div class="status-box"><div class="spin"></div>正在加载…</div>';
-  try {
-    const res = await fetch(DATA_URL + '?_=' + Date.now());
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+/* ══ 加载数据 ══ */
+async function loadData(){
+  document.getElementById('grid').innerHTML='<div class="empty"><div class="spin"></div>正在加载…</div>';
+  document.getElementById('pager').innerHTML='';
+  try{
+    const res=await fetch(DATA_URL+'?_='+Date.now());
+    if(!res.ok) throw new Error('HTTP '+res.status);
     init(await res.json());
-  } catch(e) {
-    document.getElementById('list').innerHTML =
-      '<div class="status-box">⚠️ 数据加载失败，请点右上角刷新重试<br><small style="color:var(--text-ter);margin-top:6px;display:block">'+e+'</small></div>';
+  }catch(e){
+    document.getElementById('grid').innerHTML=
+      '<div class="empty">⚠️ 加载失败，请点右上角刷新<br><small style="color:var(--t3);margin-top:6px;display:block">'+e+'</small></div>';
   }
 }
 
-function init(data) {
-  all = (data.accounts || []).sort((a,b) => new Date(b.updated_at||0) - new Date(a.updated_at||0));
-  document.getElementById('hTotal').textContent = data.total || 0;
-  const t = data.generated_at ? new Date(data.generated_at) : null;
-  document.getElementById('footer').textContent = t ? '自动更新于 ' + t.toLocaleString('zh-CN') : '';
-  page = 1; pwdVisible = {};
+function init(data){
+  all=(data.accounts||[]);
+  // 已在爬虫按检查时间排序，这里再确保一下
+  all.sort((a,b)=>{
+    const ta=a.checked_at||a.updated_at||'';
+    const tb=b.checked_at||b.updated_at||'';
+    return tb.localeCompare(ta);
+  });
+  document.getElementById('hTotal').textContent=data.total||0;
+  const t=data.generated_at?new Date(data.generated_at):null;
+  document.getElementById('footer').textContent=t?'数据更新于 '+t.toLocaleString('zh-CN'):'';
+  page=1; pwdVisible={};
   applyFilter();
 }
 
-function onFilter() { page = 1; applyFilter(); }
-function applyFilter() {
-  const q = document.getElementById('searchInput').value.trim().toLowerCase();
-  filtered = q ? all.filter(a => a.email.includes(q)) : [...all];
+function onFilter(){ page=1; applyFilter(); }
+function applyFilter(){
+  const q=document.getElementById('searchInput').value.trim().toLowerCase();
+  filtered=q?all.filter(a=>a.email.includes(q)):[...all];
+  document.getElementById('countInfo').textContent=filtered.length+'个账号';
   render();
 }
 
-/* ══ 状态徽章 ══ */
-function statusBadge(s) {
-  const t = (s||'').trim();
-  if (!t || t === '正常' || t === '正常使用' || t === '可用' || t === 'Normal')
-    return `<span class="status-badge status-ok"><span class="dot"></span>正常</span>`;
-  if (t === '异常' || t === '不可用')
-    return `<span class="status-badge status-err"><span class="dot"></span>异常</span>`;
-  return `<span class="status-badge status-unknown"><span class="dot"></span>${esc(t)}</span>`;
-}
-
 /* ══ 渲染 ══ */
-function render() {
-  const start = (page-1) * PAGE_SIZE;
-  const pageData = filtered.slice(start, start + PAGE_SIZE);
-  const list = document.getElementById('list');
+function render(){
+  const start=(page-1)*PAGE_SIZE;
+  const pageData=filtered.slice(start,start+PAGE_SIZE);
+  const grid=document.getElementById('grid');
 
-  if (!pageData.length) {
-    list.innerHTML = '<div class="status-box">😕 没有找到匹配的账号</div>';
-    document.getElementById('pager').innerHTML = '';
+  if(!pageData.length){
+    grid.innerHTML='<div class="empty">😕 没有找到匹配的账号</div>';
+    document.getElementById('pager').innerHTML='';
     return;
   }
 
-  list.innerHTML = pageData.map((a, i) => {
-    const idx = start + i;
-    const t = a.checked_at || (a.updated_at ? new Date(a.updated_at).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '');
-    const visible = pwdVisible[idx];
-    const pwdDisplay = visible ? esc(a.password) : '•'.repeat(Math.min(a.password.length, 10));
+  grid.innerHTML=pageData.map((a,i)=>{
+    const idx=start+i;
+    const isOk=!a.status||['正常','正常使用','可用','normal','ok'].includes((a.status||'').toLowerCase().trim());
+    const statusHtml=isOk
+      ?`<span class="status-ok"><span class="dot"></span>正常</span>`
+      :`<span class="status-err"><span class="dot"></span>${esc(a.status)}</span>`;
+
+    const timeStr=a.checked_at||(a.updated_at?new Date(a.updated_at).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'');
+    const vis=pwdVisible[idx];
+    const pwdDisplay=vis?`<span class="row-val mono">${esc(a.password)}</span>`
+                        :`<span class="pwd-dots">••••••••</span>`;
+
     return `
-    <div class="account-row">
-      <div class="row-idx">${idx+1}</div>
-      <div class="row-info">
-        <div class="row-email">${esc(a.email)}</div>
-        <div class="row-meta">
-          ${statusBadge(a.status)}
-          ${t ? `<span class="row-time">检查 ${t}</span>` : ''}
-        </div>
+    <div class="id-card">
+      <div class="card-top">
+        <span class="card-num">#${idx+1}</span>
+        ${statusHtml}
+        ${timeStr?`<span class="card-time">检查 ${esc(timeStr)}</span>`:''}
       </div>
-      <div class="row-right">
-        <div class="pwd-wrap">
-          <span class="pwd-text" id="pwd-${idx}">${pwdDisplay}</span>
-          <button class="pwd-eye" onclick="togglePwd(${idx},'${esc(a.password)}')" title="${visible?'隐藏':'显示'}密码">${visible?'🙈':'👁'}</button>
-        </div>
-        <div class="btn-group">
-          <button class="copy-btn btn-acc" onclick="copyOne('${esc(a.email)}',this)" title="复制账号">复制账号</button>
-          <button class="copy-btn btn-pwd" onclick="copyOne('${esc(a.password)}',this)" title="复制密码">复制密码</button>
-        </div>
+      <div class="card-row">
+        <span class="row-label">账号</span>
+        <span class="row-val" title="${esc(a.email)}">${esc(a.email)}</span>
       </div>
+      <div class="card-row">
+        <span class="row-label">密码</span>
+        ${pwdDisplay}
+        <button class="btn-eye" onclick="togglePwd(${idx},'${esc(a.password)}')" title="${vis?'隐藏':'显示'}密码">${vis?'🙈':'👁'}</button>
+      </div>
+      <div class="card-actions">
+        <button class="act-btn btn-acc" onclick="copyText('${esc(a.email)}',this)">复制账号</button>
+        <button class="act-btn btn-pwd" onclick="copyText('${esc(a.password)}',this)">复制密码</button>
+      </div>
+      <div class="no-rocket-tip">⚠️ 如此账号未购买小火箭，请点刷新更换其他账号</div>
     </div>`;
   }).join('');
 
   renderPager();
 }
 
-function togglePwd(idx, pwd) {
-  pwdVisible[idx] = !pwdVisible[idx];
-  const span = document.getElementById('pwd-'+idx);
-  const btn  = span.nextElementSibling;
-  if (pwdVisible[idx]) {
-    span.textContent = pwd;
-    btn.textContent = '🙈';
-    btn.title = '隐藏密码';
-  } else {
-    span.textContent = '•'.repeat(Math.min(pwd.length, 10));
-    btn.textContent = '👁';
-    btn.title = '显示密码';
-  }
+function togglePwd(idx,pwd){
+  pwdVisible[idx]=!pwdVisible[idx];
+  render(); // 重新渲染当前页
 }
 
-function copyOne(text, btn) {
-  const orig = btn.textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = '✓'; btn.classList.add('ok');
-    setTimeout(() => { btn.textContent = orig; btn.classList.remove('ok'); }, 1800);
+function copyText(text,btn){
+  const orig=btn.textContent;
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.textContent='✓ 已复制'; btn.classList.add('copied');
+    setTimeout(()=>{ btn.textContent=orig; btn.classList.remove('copied'); },1800);
   });
 }
 
-function renderPager() {
-  const total = Math.ceil(filtered.length / PAGE_SIZE);
-  if (total <= 1) { document.getElementById('pager').innerHTML=''; return; }
-  let h = `<button onclick="go(${page-1})" ${page===1?'disabled':''}>‹</button>`;
-  const lo=Math.max(1,page-2), hi=Math.min(total,page+2);
+function renderPager(){
+  const total=Math.ceil(filtered.length/PAGE_SIZE);
+  if(total<=1){document.getElementById('pager').innerHTML='';return;}
+  let h=`<button onclick="go(${page-1})" ${page===1?'disabled':''}>‹</button>`;
+  const lo=Math.max(1,page-2),hi=Math.min(total,page+2);
   if(lo>1){h+=`<button onclick="go(1)">1</button>`;if(lo>2)h+=`<span class="pager-info">…</span>`;}
   for(let p=lo;p<=hi;p++) h+=`<button class="${p===page?'on':''}" onclick="go(${p})">${p}</button>`;
   if(hi<total){if(hi<total-1)h+=`<span class="pager-info">…</span>`;h+=`<button onclick="go(${total})">${total}</button>`;}
   h+=`<button onclick="go(${page+1})" ${page===total?'disabled':''}>›</button>`;
-  h+=`<span class="pager-info">${filtered.length} 个 / 第${page}页</span>`;
+  h+=`<span class="pager-info">${filtered.length}个 / 第${page}页</span>`;
   document.getElementById('pager').innerHTML=h;
 }
 
-function go(p) {
+function go(p){
   const t=Math.ceil(filtered.length/PAGE_SIZE);
-  if(p<1||p>t) return;
+  if(p<1||p>t)return;
   page=p; pwdVisible={}; render();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-function esc(s) {
+function esc(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 initTheme();
 loadData();
-setInterval(loadData, 5*60*1000);
+setInterval(loadData,5*60*1000);
 </script>
 </body>
 </html>

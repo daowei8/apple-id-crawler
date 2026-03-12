@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>共享 Apple ID</title>
 <style>
-/* ══ 暗色主题（默认）══ */
+/* ══ 暗色 ══ */
 :root {
-  --bg:           #000000;
+  --bg:           #000;
   --surface:      rgba(255,255,255,.05);
   --surface-high: rgba(255,255,255,.09);
   --border:       rgba(255,255,255,.08);
@@ -18,15 +18,13 @@
   --blue:         #0071e3;
   --green:        #30d158;
   --red:          #ff453a;
-  --yellow:       #ffd60a;
+  --orange:       #ff9f0a;
   --nav-bg:       rgba(0,0,0,.78);
-  --pwd-bg:       rgba(255,255,255,.04);
+  --pwd-bg:       rgba(255,255,255,.05);
   --glow:         rgba(0,113,227,.1);
-  --radius-sm:    10px;
-  --radius:       16px;
+  --r:10px; --R:16px;
 }
-
-/* ══ 亮色主题 ══ */
+/* ══ 亮色 ══ */
 [data-theme="light"] {
   --bg:           #f5f5f7;
   --surface:      rgba(0,0,0,.04);
@@ -36,232 +34,151 @@
   --text:         #1d1d1f;
   --text-sec:     rgba(29,29,31,.6);
   --text-ter:     rgba(29,29,31,.38);
-  --blue:         #0071e3;
   --green:        #1c8a38;
   --red:          #d93025;
-  --yellow:       #9a6e00;
+  --orange:       #c85000;
   --nav-bg:       rgba(245,245,247,.85);
   --pwd-bg:       rgba(0,0,0,.04);
   --glow:         rgba(0,113,227,.05);
 }
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, "SF Pro Display", "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
-  font-size: 15px; line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
-  /* 主题切换过渡 */
-  transition: background .3s ease, color .3s ease;
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:-apple-system,"SF Pro Display","PingFang SC","Helvetica Neue",sans-serif;
+  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+  transition:background .3s,color .3s;
 }
-body::before {
-  content: '';
-  position: fixed; top: -200px; left: 50%; transform: translateX(-50%);
-  width: 800px; height: 600px;
-  background: radial-gradient(ellipse, var(--glow) 0%, transparent 70%);
-  pointer-events: none; z-index: 0;
-  transition: background .3s;
+body::before{
+  content:'';position:fixed;top:-200px;left:50%;transform:translateX(-50%);
+  width:800px;height:600px;
+  background:radial-gradient(ellipse,var(--glow) 0%,transparent 70%);
+  pointer-events:none;z-index:0;transition:background .3s;
 }
 
-/* ══ 导航 ══ */
-nav {
-  position: sticky; top: 0; z-index: 100;
-  height: 52px;
-  background: var(--nav-bg);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: .5px solid var(--border);
-  display: flex; align-items: center;
-  padding: 0 24px; gap: 10px;
-  transition: background .3s, border-color .3s;
+/* ── 导航 ── */
+nav{
+  position:sticky;top:0;z-index:100;height:52px;
+  background:var(--nav-bg);
+  backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);
+  border-bottom:.5px solid var(--border);
+  display:flex;align-items:center;padding:0 24px;gap:10px;
+  transition:background .3s,border-color .3s;
 }
-.nav-logo {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 17px; font-weight: 600; letter-spacing: -.3px; flex: 1;
-}
-.nav-count {
-  font-size: 12px; color: var(--text-sec);
-  background: var(--surface); border: .5px solid var(--border-high);
-  border-radius: 20px; padding: 4px 12px;
-  display: flex; align-items: center; gap: 5px;
-  white-space: nowrap; transition: background .3s, border-color .3s;
-}
-.nav-count em { color: var(--green); font-style: normal; font-weight: 600; }
+.nav-logo{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:600;letter-spacing:-.3px;flex:1}
+.nav-count{font-size:12px;color:var(--text-sec);background:var(--surface);border:.5px solid var(--border-high);border-radius:20px;padding:4px 12px;display:flex;align-items:center;gap:5px;white-space:nowrap;transition:background .3s}
+.nav-count em{color:var(--green);font-style:normal;font-weight:600}
+.theme-btn{width:34px;height:34px;border-radius:50%;background:var(--surface);border:.5px solid var(--border);color:var(--text-sec);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .2s;flex-shrink:0}
+.theme-btn:hover{background:var(--surface-high);color:var(--text);transform:rotate(20deg)}
+.nav-btn{background:var(--blue);color:#fff;border:none;border-radius:980px;padding:6px 16px;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s;white-space:nowrap;font-family:inherit}
+.nav-btn:hover{opacity:.85}.nav-btn:active{opacity:.7;transform:scale(.97)}
 
-/* 主题切换按钮 */
-.theme-btn {
-  width: 34px; height: 34px; border-radius: 50%;
-  background: var(--surface); border: .5px solid var(--border);
-  color: var(--text-sec); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px; transition: all .2s; flex-shrink: 0;
-}
-.theme-btn:hover { background: var(--surface-high); color: var(--text); transform: rotate(20deg); }
-.theme-btn:active { transform: scale(.9); }
+/* ── 主容器 ── */
+main{max-width:860px;margin:0 auto;padding:24px 20px 80px;position:relative;z-index:1}
 
-.nav-btn {
-  background: var(--blue); color: #fff; border: none;
-  border-radius: 980px; padding: 6px 16px;
-  font-size: 13px; font-weight: 500; cursor: pointer;
-  transition: opacity .15s; white-space: nowrap; font-family: inherit;
-}
-.nav-btn:hover { opacity: .85; }
-.nav-btn:active { opacity: .7; transform: scale(.97); }
+/* ── 警告 ── */
+.warn-stack{display:grid;gap:6px;margin-bottom:14px}
+.warn{display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:var(--r);font-size:13px;font-weight:500;line-height:1.55;animation:fadeUp .4s ease both;transition:background .3s}
+.warn:nth-child(2){animation-delay:.06s}.warn:nth-child(3){animation-delay:.12s}
+.warn.r{background:rgba(255,69,58,.1);border:.5px solid rgba(255,69,58,.3)}
+.warn.g{background:rgba(48,209,88,.08);border:.5px solid rgba(48,209,88,.25)}
+.warn.b{background:rgba(0,113,227,.1);border:.5px solid rgba(0,113,227,.3)}
+[data-theme="dark"] .warn.r{color:#ff6b63}[data-theme="dark"] .warn.g{color:#32d74b}[data-theme="dark"] .warn.b{color:#409cff}
+[data-theme="light"] .warn.r{color:#c0392b}[data-theme="light"] .warn.g{color:#1a7a30}[data-theme="light"] .warn.b{color:#0060c0}
+.warn strong{font-weight:700}
 
-/* ══ 主容器 ══ */
-main {
-  max-width: 800px; margin: 0 auto;
-  padding: 24px 20px 80px;
-  position: relative; z-index: 1;
-}
+/* ── 折叠卡片 ── */
+.card-block{background:var(--surface);border:.5px solid var(--border);border-radius:var(--R);overflow:hidden;margin-bottom:10px;animation:fadeUp .4s ease both;transition:background .3s,border-color .3s}
+.card-block:nth-child(2){animation-delay:.16s}.card-block:nth-child(3){animation-delay:.22s}
+.block-head{padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;transition:background .15s}
+.block-head:hover{background:var(--surface-high)}
+.block-head-left{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600}
+.icon-box{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.ib-y{background:rgba(255,214,10,.15)}.ib-b{background:rgba(0,113,227,.15)}
+.chev{color:var(--text-ter);font-size:10px;transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.chev.open{transform:rotate(180deg)}
+.block-body{display:none;border-top:.5px solid var(--border);padding:16px 18px;transition:border-color .3s}
+.block-body.open{display:block}
+.notice-list{list-style:none;display:grid;gap:8px}
+.notice-list li{display:flex;gap:10px;font-size:13px;color:var(--text-sec);line-height:1.6}
+.notice-list li::before{content:"📣";flex-shrink:0}
+.guide-steps{display:grid;gap:18px}
+.guide-step{display:flex;gap:14px;align-items:flex-start}
+.step-badge{width:24px;height:24px;border-radius:50%;flex-shrink:0;background:var(--blue);color:#fff;font-size:12px;font-weight:700;margin-top:2px;display:flex;align-items:center;justify-content:center}
+.step-text{font-size:13px;color:var(--text-sec);line-height:1.65}
+.step-text strong{color:var(--text);font-weight:600}
+.step-text .danger{color:var(--red);font-weight:600}
 
-/* ══ 警告横幅 ══ */
-.warn-stack { display: grid; gap: 6px; margin-bottom: 14px; }
-.warn {
-  display: flex; align-items: flex-start; gap: 10px;
-  padding: 12px 16px; border-radius: var(--radius-sm);
-  font-size: 13px; font-weight: 500; line-height: 1.55;
-  animation: fadeUp .4s ease both;
-  transition: background .3s, border-color .3s;
-}
-.warn:nth-child(2) { animation-delay: .06s; }
-.warn:nth-child(3) { animation-delay: .12s; }
-.warn.r { background: rgba(255,69,58,.1);  border: .5px solid rgba(255,69,58,.3);  color: #e0453a; }
-.warn.g { background: rgba(48,209,88,.08); border: .5px solid rgba(48,209,88,.25); color: #1c8a38; }
-.warn.b { background: rgba(0,113,227,.1);  border: .5px solid rgba(0,113,227,.3);  color: #0060c0; }
-[data-theme="dark"] .warn.r { color: #ff6b63; }
-[data-theme="dark"] .warn.g { color: #32d74b; }
-[data-theme="dark"] .warn.b { color: #409cff; }
-.warn-sq { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
-.warn strong { font-weight: 700; }
+/* ── 搜索 ── */
+.search-wrap{position:relative;margin-bottom:14px;animation:fadeUp .4s ease .28s both}
+.search-wrap input{width:100%;background:var(--surface);border:.5px solid var(--border);border-radius:var(--r);padding:12px 16px 12px 40px;font-size:15px;color:var(--text);font-family:inherit;outline:none;transition:border .2s,background .2s,color .3s}
+.search-wrap input::placeholder{color:var(--text-ter)}
+.search-wrap input:focus{border-color:var(--blue);background:rgba(0,113,227,.05)}
+.s-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-ter);pointer-events:none}
 
-/* ══ 卡片块 ══ */
-.card-block {
-  background: var(--surface); border: .5px solid var(--border);
-  border-radius: var(--radius); overflow: hidden; margin-bottom: 10px;
-  animation: fadeUp .4s ease both;
-  transition: background .3s, border-color .3s;
-}
-.card-block:nth-child(2) { animation-delay: .16s; }
-.card-block:nth-child(3) { animation-delay: .22s; }
-.block-head {
-  padding: 14px 18px;
-  display: flex; align-items: center; justify-content: space-between;
-  cursor: pointer; user-select: none; transition: background .15s;
-}
-.block-head:hover { background: var(--surface-high); }
-.block-head-left { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
-.icon-box { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
-.ib-yellow { background: rgba(255,214,10,.15); }
-.ib-blue   { background: rgba(0,113,227,.15); }
-.chev { color: var(--text-ter); font-size: 10px; transition: transform .25s cubic-bezier(.4,0,.2,1); }
-.chev.open { transform: rotate(180deg); }
-.block-body { display: none; border-top: .5px solid var(--border); padding: 16px 18px; transition: border-color .3s; }
-.block-body.open { display: block; }
+/* ── 账号列表 ── */
+.list-wrap{background:var(--surface);border:.5px solid var(--border);border-radius:var(--R);overflow:hidden;animation:fadeUp .4s ease .34s both;transition:background .3s,border-color .3s}
+.account-row{display:flex;align-items:center;padding:14px 18px;gap:14px;border-bottom:.5px solid var(--border);transition:background .15s,border-color .3s}
+.account-row:last-child{border-bottom:none}
+.account-row:hover{background:var(--surface-high)}
 
-/* 须知 */
-.notice-list { list-style: none; display: grid; gap: 8px; }
-.notice-list li { display: flex; gap: 10px; font-size: 13px; color: var(--text-sec); line-height: 1.6; }
-.notice-list li::before { content: "📣"; flex-shrink: 0; }
+/* 序号 */
+.row-idx{font-size:12px;color:var(--text-ter);width:22px;text-align:right;flex-shrink:0}
 
-/* 教程 */
-.guide-steps { display: grid; gap: 18px; }
-.guide-step  { display: flex; gap: 14px; align-items: flex-start; }
-.step-badge {
-  width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
-  background: var(--blue); color: #fff;
-  font-size: 12px; font-weight: 700; margin-top: 2px;
-  display: flex; align-items: center; justify-content: center;
-}
-.step-text { font-size: 13px; color: var(--text-sec); line-height: 1.65; }
-.step-text strong { color: var(--text); font-weight: 600; }
-.step-text .danger { color: var(--red); font-weight: 600; }
+/* 信息区 */
+.row-info{flex:1;min-width:0}
+.row-email{font-size:14px;font-weight:500;word-break:break-all;letter-spacing:-.1px;margin-bottom:4px}
+.row-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 
-/* ══ 搜索 ══ */
-.search-wrap { position: relative; margin-bottom: 14px; animation: fadeUp .4s ease .28s both; }
-.search-wrap input {
-  width: 100%;
-  background: var(--surface); border: .5px solid var(--border);
-  border-radius: var(--radius-sm); padding: 12px 16px 12px 40px;
-  font-size: 15px; color: var(--text); font-family: inherit;
-  outline: none; transition: border .2s, background .2s, color .3s;
-}
-.search-wrap input::placeholder { color: var(--text-ter); }
-.search-wrap input:focus { border-color: var(--blue); background: rgba(0,113,227,.05); }
-.s-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-ter); pointer-events: none; }
+/* 状态徽章 */
+.status-badge{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;border-radius:20px;padding:2px 8px}
+.status-ok{background:rgba(48,209,88,.12);color:var(--green)}
+.status-err{background:rgba(255,69,58,.12);color:var(--red)}
+.status-unknown{background:rgba(255,159,10,.1);color:var(--orange)}
+.dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
 
-/* ══ 账号列表 ══ */
-.list-wrap {
-  background: var(--surface); border: .5px solid var(--border);
-  border-radius: var(--radius); overflow: hidden;
-  animation: fadeUp .4s ease .34s both;
-  transition: background .3s, border-color .3s;
-}
-.account-row {
-  display: flex; align-items: center;
-  padding: 13px 18px; gap: 14px;
-  border-bottom: .5px solid var(--border);
-  transition: background .15s, border-color .3s;
-}
-.account-row:last-child { border-bottom: none; }
-.account-row:hover { background: var(--surface-high); }
-.row-idx  { font-size: 12px; color: var(--text-ter); width: 22px; text-align: right; flex-shrink: 0; }
-.row-info { flex: 1; min-width: 0; }
-.row-email { font-size: 14px; font-weight: 500; word-break: break-all; letter-spacing: -.1px; }
-.row-sub  { font-size: 11px; color: var(--text-ter); margin-top: 2px; }
-.row-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.pwd-pill {
-  font-family: "SF Mono","Menlo",monospace; font-size: 13px;
-  background: var(--pwd-bg); border: .5px solid var(--border-high);
-  border-radius: 8px; padding: 5px 10px;
-  min-width: 96px; text-align: center; letter-spacing: .3px;
-  transition: background .3s, border-color .3s;
-}
-.copy-btn {
-  background: var(--blue); color: #fff; border: none;
-  border-radius: 980px; padding: 5px 14px;
-  font-size: 12px; font-weight: 500; cursor: pointer;
-  transition: opacity .15s, transform .1s, background .2s; white-space: nowrap; font-family: inherit;
-}
-.copy-btn:hover { opacity: .85; }
-.copy-btn:active { transform: scale(.95); }
-.copy-btn.ok { background: var(--green); }
+/* 检查时间 */
+.row-time{font-size:11px;color:var(--text-ter)}
 
-/* ══ 翻页 ══ */
-.pager { display: flex; align-items: center; justify-content: center; gap: 5px; margin-top: 18px; flex-wrap: wrap; }
-.pager button {
-  background: var(--surface); border: .5px solid var(--border);
-  color: var(--text-sec); width: 34px; height: 34px;
-  border-radius: var(--radius-sm); cursor: pointer; font-size: 13px;
-  transition: all .15s; font-family: inherit;
-}
-.pager button:hover:not(:disabled) { border-color: var(--blue); color: var(--blue); background: rgba(0,113,227,.08); }
-.pager button.on { background: var(--blue); color: #fff; border-color: var(--blue); }
-.pager button:disabled { opacity: .25; cursor: default; }
-.pager-info { font-size: 12px; color: var(--text-ter); padding: 0 4px; }
+/* 右侧操作区 */
+.row-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
 
-/* ══ 状态 ══ */
-.status-box { text-align: center; padding: 60px 0; color: var(--text-ter); font-size: 14px; }
-.spin {
-  width: 28px; height: 28px; margin: 0 auto 14px;
-  border: 2px solid var(--border); border-top-color: var(--blue);
-  border-radius: 50%; animation: spin .7s linear infinite;
-}
-@keyframes spin   { to { transform: rotate(360deg); } }
-@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* 密码框 */
+.pwd-wrap{display:flex;align-items:center;gap:0;background:var(--pwd-bg);border:.5px solid var(--border-high);border-radius:var(--r);overflow:hidden;transition:background .3s,border-color .3s}
+.pwd-text{font-family:"SF Mono","Menlo",monospace;font-size:13px;padding:5px 10px;min-width:100px;text-align:center;letter-spacing:.3px;white-space:nowrap}
+.pwd-eye{background:none;border:none;border-left:.5px solid var(--border-high);padding:5px 8px;cursor:pointer;color:var(--text-ter);font-size:12px;transition:color .15s;flex-shrink:0}
+.pwd-eye:hover{color:var(--text)}
 
-footer { text-align: center; padding: 20px; font-size: 12px; color: var(--text-ter); position: relative; z-index: 1; }
+/* 操作按钮 */
+.btn-group{display:flex;gap:5px}
+.copy-btn{border:none;border-radius:980px;padding:5px 12px;font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s,transform .1s,background .2s;white-space:nowrap;font-family:inherit;color:#fff}
+.copy-btn:hover{opacity:.85}.copy-btn:active{transform:scale(.95)}
+.copy-btn.btn-acc{background:#636366}
+.copy-btn.btn-pwd{background:var(--blue)}
+.copy-btn.ok{background:var(--green) !important}
 
-@media(max-width:560px){
-  nav { padding: 0 14px; gap: 8px; }
-  .nav-logo { font-size: 15px; }
-  main { padding: 18px 14px 60px; }
-  .account-row { padding: 11px 14px; }
-  .row-right { flex-direction: column; align-items: flex-end; gap: 5px; }
-  .pwd-pill { min-width: 76px; font-size: 12px; }
+/* ── 翻页 ── */
+.pager{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:18px;flex-wrap:wrap}
+.pager button{background:var(--surface);border:.5px solid var(--border);color:var(--text-sec);width:34px;height:34px;border-radius:var(--r);cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
+.pager button:hover:not(:disabled){border-color:var(--blue);color:var(--blue);background:rgba(0,113,227,.08)}
+.pager button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.pager button:disabled{opacity:.25;cursor:default}
+.pager-info{font-size:12px;color:var(--text-ter);padding:0 4px}
+
+/* ── 状态 ── */
+.status-box{text-align:center;padding:60px 0;color:var(--text-ter);font-size:14px}
+.spin{width:28px;height:28px;margin:0 auto 14px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+footer{text-align:center;padding:20px;font-size:12px;color:var(--text-ter);position:relative;z-index:1}
+
+@media(max-width:600px){
+  nav{padding:0 14px;gap:8px}.nav-logo{font-size:15px}
+  main{padding:18px 12px 60px}
+  .account-row{padding:12px 14px;flex-wrap:wrap;gap:10px}
+  .row-right{width:100%;justify-content:flex-end}
+  .pwd-text{min-width:80px;font-size:12px}
 }
 </style>
 </head>
@@ -275,22 +192,20 @@ footer { text-align: center; padding: 20px; font-size: 12px; color: var(--text-t
     共享 Apple ID
   </div>
   <div class="nav-count">共 <em id="hTotal">-</em> 个账号</div>
-  <!-- 主题切换按钮 -->
   <button class="theme-btn" id="themeBtn" onclick="toggleTheme()" title="切换亮/暗色">🌙</button>
   <button class="nav-btn" onclick="loadData()">↻ 刷新</button>
 </nav>
 
 <main>
-
   <div class="warn-stack">
-    <div class="warn r"><span class="warn-sq">🟥</span><span><strong>严重警告！</strong>请不要将共享账号登陆到手机【设置】或【iCloud】里！否则会被坏人<strong>锁机、勒索、敲诈</strong>！只能在 <strong>App Store</strong> 内登录！</span></div>
-    <div class="warn g"><span class="warn-sq">🟩</span><span><strong>严重警告！</strong>请不要将共享账号登陆到手机【设置】或【iCloud】里！否则会被坏人<strong>锁机、勒索、敲诈</strong>！只能在 <strong>App Store</strong> 内登录！</span></div>
-    <div class="warn b"><span class="warn-sq">🟦</span><span><strong>严重警告！</strong>请不要将共享账号登陆到手机【设置】或【iCloud】里！否则会被坏人<strong>锁机、勒索、敲诈</strong>！只能在 <strong>App Store</strong> 内登录！</span></div>
+    <div class="warn r"><span>🟥</span><span><strong>严重警告！</strong>请不要将共享账号登陆到手机【设置】或【iCloud】里！否则会被坏人<strong>锁机、勒索、敲诈</strong>！只能在 <strong>App Store</strong> 内登录！</span></div>
+    <div class="warn g"><span>🟩</span><span><strong>严重警告！</strong>请不要将共享账号登陆到手机【设置】或【iCloud】里！否则会被坏人<strong>锁机、勒索、敲诈</strong>！只能在 <strong>App Store</strong> 内登录！</span></div>
+    <div class="warn b"><span>🟦</span><span><strong>严重警告！</strong>请不要将共享账号登陆到手机【设置】或【iCloud】里！否则会被坏人<strong>锁机、勒索、敲诈</strong>！只能在 <strong>App Store</strong> 内登录！</span></div>
   </div>
 
   <div class="card-block">
     <div class="block-head" onclick="toggle('notice')">
-      <div class="block-head-left"><div class="icon-box ib-yellow">📋</div>使用须知</div>
+      <div class="block-head-left"><div class="icon-box ib-y">📋</div>使用须知</div>
       <span class="chev" id="notice-chev">▼</span>
     </div>
     <div class="block-body" id="notice-body">
@@ -307,90 +222,61 @@ footer { text-align: center; padding: 20px; font-size: 12px; color: var(--text-t
 
   <div class="card-block" style="margin-bottom:20px">
     <div class="block-head" onclick="toggle('guide')">
-      <div class="block-head-left"><div class="icon-box ib-blue">📖</div>使用教程</div>
+      <div class="block-head-left"><div class="icon-box ib-b">📖</div>使用教程</div>
       <span class="chev" id="guide-chev">▼</span>
     </div>
     <div class="block-body" id="guide-body">
       <div class="guide-steps">
-        <div class="guide-step">
-          <div class="step-badge">1</div>
-          <div class="step-text">在 iPhone / iPad 主屏幕找到 <strong>「App Store」</strong> 并打开，点击右上角 <strong>「头像图标」</strong>，下滑到底部，点击 <strong>「退出登录」</strong> 退出当前账号。</div>
-        </div>
-        <div class="guide-step">
-          <div class="step-badge">2</div>
-          <div class="step-text">复制下方的账号和密码，在 App Store 登录界面 <strong>输入账号和密码</strong>，点击「登录」。</div>
-        </div>
-        <div class="guide-step">
-          <div class="step-badge">3</div>
-          <div class="step-text">如出现 <strong>「Apple ID 安全」</strong> 提示，点击下方 <strong>「其他选项」</strong> → <strong>「不升级」</strong> 继续登录。<span class="danger"> 千万不要点升级！</span></div>
-        </div>
-        <div class="guide-step">
-          <div class="step-badge">4</div>
-          <div class="step-text">搜索您想要的软件并下载，如提示付费可忽视，<strong>直接点击下载</strong>即可。</div>
-        </div>
-        <div class="guide-step">
-          <div class="step-badge">5</div>
-          <div class="step-text">下载完成后请 <strong>退出共享账号</strong>，换回自己的 Apple ID，开心冲浪！🏄</div>
-        </div>
+        <div class="guide-step"><div class="step-badge">1</div><div class="step-text">在 iPhone / iPad 找到 <strong>「App Store」</strong> 并打开，点击右上角 <strong>「头像图标」</strong>，下滑到底，点 <strong>「退出登录」</strong>。</div></div>
+        <div class="guide-step"><div class="step-badge">2</div><div class="step-text">复制下方账号和密码，在 App Store 登录界面输入，点击「登录」。</div></div>
+        <div class="guide-step"><div class="step-badge">3</div><div class="step-text">如出现 <strong>「Apple ID 安全」</strong> 提示，点 <strong>「其他选项」→「不升级」</strong>。<span class="danger"> 千万不要点升级！</span></div></div>
+        <div class="guide-step"><div class="step-badge">4</div><div class="step-text">搜索软件，如提示付费可忽视，<strong>直接点下载</strong>即可。</div></div>
+        <div class="guide-step"><div class="step-badge">5</div><div class="step-text">下载完成后请 <strong>退出共享账号</strong>，换回自己的 Apple ID 🏄</div></div>
       </div>
     </div>
   </div>
 
   <div class="search-wrap">
-    <svg class="s-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-    </svg>
+    <svg class="s-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     <input id="searchInput" type="text" placeholder="搜索账号邮箱…" oninput="onFilter()"/>
   </div>
 
-  <div class="list-wrap">
-    <div id="list">
-      <div class="status-box"><div class="spin"></div>正在加载账号数据…</div>
-    </div>
-  </div>
+  <div class="list-wrap"><div id="list"><div class="status-box"><div class="spin"></div>正在加载账号数据…</div></div></div>
   <div class="pager" id="pager"></div>
-
 </main>
 
 <footer id="footer"></footer>
 
 <script>
-// ⚠️ 把 YOUR_USER 换成你的 GitHub 用户名
-//    YOUR_REPO  换成你的仓库名（如 apple-id-crawler）
+// ⚠️ 把 YOUR_USER 换成 GitHub 用户名，YOUR_REPO 换成仓库名
 const DATA_URL = 'https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/apple_ids.json';
 
 const PAGE_SIZE = 20;
 let all = [], filtered = [], page = 1;
+let pwdVisible = {};  // 记录哪些账号密码可见
 
-/* ══ 主题切换 ══ */
-const THEME_KEY = 'apple-id-theme';
+/* ══ 主题 ══ */
 function initTheme() {
-  // 优先读用户上次选择，否则跟随系统
-  const saved = localStorage.getItem(THEME_KEY);
-  const prefer = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  const saved  = localStorage.getItem('apple-id-theme');
+  const prefer = window.matchMedia('(prefers-color-scheme:light)').matches ? 'light' : 'dark';
   setTheme(saved || prefer, false);
 }
-function setTheme(theme, save = true) {
-  document.documentElement.setAttribute('data-theme', theme);
-  document.getElementById('themeBtn').textContent = theme === 'dark' ? '🌙' : '☀️';
-  if (save) localStorage.setItem(THEME_KEY, theme);
+function setTheme(t, save=true) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '🌙' : '☀️';
+  if (save) localStorage.setItem('apple-id-theme', t);
 }
 function toggleTheme() {
-  const cur = document.documentElement.getAttribute('data-theme');
-  setTheme(cur === 'dark' ? 'light' : 'dark');
+  setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
 }
-// 跟随系统变化
-window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', e => {
-  if (!localStorage.getItem(THEME_KEY)) setTheme(e.matches ? 'light' : 'dark', false);
-});
 
 /* ══ 折叠 ══ */
 function toggle(id) {
-  document.getElementById(id + '-body').classList.toggle('open');
-  document.getElementById(id + '-chev').classList.toggle('open');
+  document.getElementById(id+'-body').classList.toggle('open');
+  document.getElementById(id+'-chev').classList.toggle('open');
 }
 
-/* ══ 数据加载 ══ */
+/* ══ 数据 ══ */
 async function loadData() {
   document.getElementById('list').innerHTML = '<div class="status-box"><div class="spin"></div>正在加载…</div>';
   try {
@@ -399,16 +285,16 @@ async function loadData() {
     init(await res.json());
   } catch(e) {
     document.getElementById('list').innerHTML =
-      '<div class="status-box">⚠️ 数据加载失败，请点右上角刷新重试<br><small style="color:var(--text-ter);margin-top:6px;display:block">' + e + '</small></div>';
+      '<div class="status-box">⚠️ 数据加载失败，请点右上角刷新重试<br><small style="color:var(--text-ter);margin-top:6px;display:block">'+e+'</small></div>';
   }
 }
 
 function init(data) {
-  all = (data.accounts || []).sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0));
+  all = (data.accounts || []).sort((a,b) => new Date(b.updated_at||0) - new Date(a.updated_at||0));
   document.getElementById('hTotal').textContent = data.total || 0;
   const t = data.generated_at ? new Date(data.generated_at) : null;
   document.getElementById('footer').textContent = t ? '自动更新于 ' + t.toLocaleString('zh-CN') : '';
-  page = 1;
+  page = 1; pwdVisible = {};
   applyFilter();
 }
 
@@ -419,10 +305,21 @@ function applyFilter() {
   render();
 }
 
+/* ══ 状态徽章 ══ */
+function statusBadge(s) {
+  const t = (s||'').trim();
+  if (!t || t === '正常' || t === '正常使用' || t === '可用' || t === 'Normal')
+    return `<span class="status-badge status-ok"><span class="dot"></span>正常</span>`;
+  if (t === '异常' || t === '不可用')
+    return `<span class="status-badge status-err"><span class="dot"></span>异常</span>`;
+  return `<span class="status-badge status-unknown"><span class="dot"></span>${esc(t)}</span>`;
+}
+
+/* ══ 渲染 ══ */
 function render() {
-  const start    = (page - 1) * PAGE_SIZE;
+  const start = (page-1) * PAGE_SIZE;
   const pageData = filtered.slice(start, start + PAGE_SIZE);
-  const list     = document.getElementById('list');
+  const list = document.getElementById('list');
 
   if (!pageData.length) {
     list.innerHTML = '<div class="status-box">😕 没有找到匹配的账号</div>';
@@ -431,19 +328,29 @@ function render() {
   }
 
   list.innerHTML = pageData.map((a, i) => {
-    const t = a.updated_at
-      ? new Date(a.updated_at).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
-      : '';
+    const idx = start + i;
+    const t = a.checked_at || (a.updated_at ? new Date(a.updated_at).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '');
+    const visible = pwdVisible[idx];
+    const pwdDisplay = visible ? esc(a.password) : '•'.repeat(Math.min(a.password.length, 10));
     return `
     <div class="account-row">
-      <div class="row-idx">${start + i + 1}</div>
+      <div class="row-idx">${idx+1}</div>
       <div class="row-info">
         <div class="row-email">${esc(a.email)}</div>
-        <div class="row-sub">${t ? '更新于 ' + t + ' · ' : ''}仅限 App Store · 禁止登录设置/iCloud</div>
+        <div class="row-meta">
+          ${statusBadge(a.status)}
+          ${t ? `<span class="row-time">检查 ${t}</span>` : ''}
+        </div>
       </div>
       <div class="row-right">
-        <div class="pwd-pill">${esc(a.password)}</div>
-        <button class="copy-btn" onclick="doCopy('${esc(a.email)}','${esc(a.password)}',this)">复制</button>
+        <div class="pwd-wrap">
+          <span class="pwd-text" id="pwd-${idx}">${pwdDisplay}</span>
+          <button class="pwd-eye" onclick="togglePwd(${idx},'${esc(a.password)}')" title="${visible?'隐藏':'显示'}密码">${visible?'🙈':'👁'}</button>
+        </div>
+        <div class="btn-group">
+          <button class="copy-btn btn-acc" onclick="copyOne('${esc(a.email)}',this)" title="复制账号">复制账号</button>
+          <button class="copy-btn btn-pwd" onclick="copyOne('${esc(a.password)}',this)" title="复制密码">复制密码</button>
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -451,31 +358,47 @@ function render() {
   renderPager();
 }
 
+function togglePwd(idx, pwd) {
+  pwdVisible[idx] = !pwdVisible[idx];
+  const span = document.getElementById('pwd-'+idx);
+  const btn  = span.nextElementSibling;
+  if (pwdVisible[idx]) {
+    span.textContent = pwd;
+    btn.textContent = '🙈';
+    btn.title = '隐藏密码';
+  } else {
+    span.textContent = '•'.repeat(Math.min(pwd.length, 10));
+    btn.textContent = '👁';
+    btn.title = '显示密码';
+  }
+}
+
+function copyOne(text, btn) {
+  const orig = btn.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓'; btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('ok'); }, 1800);
+  });
+}
+
 function renderPager() {
   const total = Math.ceil(filtered.length / PAGE_SIZE);
-  if (total <= 1) { document.getElementById('pager').innerHTML = ''; return; }
+  if (total <= 1) { document.getElementById('pager').innerHTML=''; return; }
   let h = `<button onclick="go(${page-1})" ${page===1?'disabled':''}>‹</button>`;
-  const lo = Math.max(1, page-2), hi = Math.min(total, page+2);
-  if (lo > 1) { h += `<button onclick="go(1)">1</button>`; if (lo > 2) h += `<span class="pager-info">…</span>`; }
-  for (let p = lo; p <= hi; p++) h += `<button class="${p===page?'on':''}" onclick="go(${p})">${p}</button>`;
-  if (hi < total) { if (hi < total-1) h += `<span class="pager-info">…</span>`; h += `<button onclick="go(${total})">${total}</button>`; }
-  h += `<button onclick="go(${page+1})" ${page===total?'disabled':''}>›</button>`;
-  h += `<span class="pager-info">${filtered.length} 个 / 第${page}页</span>`;
-  document.getElementById('pager').innerHTML = h;
+  const lo=Math.max(1,page-2), hi=Math.min(total,page+2);
+  if(lo>1){h+=`<button onclick="go(1)">1</button>`;if(lo>2)h+=`<span class="pager-info">…</span>`;}
+  for(let p=lo;p<=hi;p++) h+=`<button class="${p===page?'on':''}" onclick="go(${p})">${p}</button>`;
+  if(hi<total){if(hi<total-1)h+=`<span class="pager-info">…</span>`;h+=`<button onclick="go(${total})">${total}</button>`;}
+  h+=`<button onclick="go(${page+1})" ${page===total?'disabled':''}>›</button>`;
+  h+=`<span class="pager-info">${filtered.length} 个 / 第${page}页</span>`;
+  document.getElementById('pager').innerHTML=h;
 }
 
 function go(p) {
-  const t = Math.ceil(filtered.length / PAGE_SIZE);
-  if (p < 1 || p > t) return;
-  page = p; render();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function doCopy(email, pwd, btn) {
-  navigator.clipboard.writeText(`账号: ${email}\n密码: ${pwd}`).then(() => {
-    btn.textContent = '✓ 已复制'; btn.classList.add('ok');
-    setTimeout(() => { btn.textContent = '复制'; btn.classList.remove('ok'); }, 2000);
-  });
+  const t=Math.ceil(filtered.length/PAGE_SIZE);
+  if(p<1||p>t) return;
+  page=p; pwdVisible={}; render();
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function esc(s) {
@@ -484,7 +407,7 @@ function esc(s) {
 
 initTheme();
 loadData();
-setInterval(loadData, 5 * 60 * 1000);
+setInterval(loadData, 5*60*1000);
 </script>
 </body>
 </html>

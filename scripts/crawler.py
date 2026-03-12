@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 
-from curl_cffi import requests
+import requests
 from bs4 import BeautifulSoup
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")

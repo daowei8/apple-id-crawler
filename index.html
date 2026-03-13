@@ -163,8 +163,23 @@ main{padding:0 0 80px}
 .cbtn-p{background:var(--blue);color:#fff;border:.5px solid transparent}
 .cbtn-p:hover{opacity:.85}
 .cbtn.ok{background:var(--green)!important;color:#fff!important;border-color:transparent!important}
+/* 状态/地区徽章 */
+.badge{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:20px;white-space:nowrap}
+.badge-ok{background:rgba(48,209,88,.15);color:var(--green);border:.5px solid rgba(48,209,88,.28)}
+.badge-lock{background:rgba(255,69,58,.12);color:#ff6060;border:.5px solid rgba(255,69,58,.25)}
+.badge-country{background:var(--card);border:.5px solid var(--border);color:var(--t2)}
 /* 小火箭提示 */
 .rocket-tip{font-size:11.5px;color:var(--orange);background:rgba(255,159,10,.07);border:.5px solid rgba(255,159,10,.2);border-radius:8px;padding:6px 10px;line-height:1.5}
+/* 购买独享ID按钮 */
+.buy-id-btns{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
+.buy-id-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 10px;border-radius:10px;font-size:11.5px;font-weight:700;text-decoration:none;transition:opacity .15s;white-space:nowrap;min-width:0}
+.buy-id-btn:active{opacity:.7}
+.buy-id-btn-1{background:rgba(0,113,227,.18);color:#5aabff;border:.5px solid rgba(0,113,227,.3)}
+.buy-id-btn-1:hover{background:rgba(0,113,227,.28)}
+.buy-id-btn-2{background:rgba(255,159,10,.13);color:var(--orange);border:.5px solid rgba(255,159,10,.25)}
+.buy-id-btn-2:hover{background:rgba(255,159,10,.22)}
+[data-theme=light] .buy-id-btn-1{color:#0055b0}
+[data-theme=light] .buy-id-btn-2{color:#8a4800}
 /* 密码复制后提示 */
 .store-tip{display:none;padding:8px 10px;border-radius:9px;background:rgba(0,113,227,.1);border:.5px solid rgba(0,113,227,.28);font-size:12px;color:#5aabff;line-height:1.6;animation:fadeUp .3s ease both}
 [data-theme=light] .store-tip{color:#0055b0}
@@ -293,7 +308,8 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
 <!-- NAV -->
 <nav>
   <div class="nav-logo">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+    <img src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/logo.png" alt="logo" style="width:22px;height:22px;object-fit:contain;border-radius:5px;flex-shrink:0" onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex'"/>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;display:none"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
     共享 Apple ID
   </div>
   <div class="nav-cnt">共 <b id="hTotal">-</b> 个账号</div>
@@ -478,9 +494,16 @@ function render(){
     const pdisplay=vis
       ?`<span class="cv mono">${esc(a.password)}</span>`
       :`<span class="pdots">••••••••</span>`;
+    const statusBadge=a.status
+      ?(a.status.includes('锁')||a.status.includes('异常')||a.status.includes('失效')
+        ?`<span class="badge badge-lock">🔒 ${esc(a.status)}</span>`
+        :`<span class="badge badge-ok">✅ ${esc(a.status)}</span>`)
+      :'';
+    const countryBadge=a.country?`<span class="badge badge-country">🌏 ${esc(a.country)}</span>`:'';
     return `<div class="id-card">
   <div class="ct">
     <span class="cn">#${idx+1}</span>
+    ${statusBadge}${countryBadge}
     ${ts?`<span class="ctime">${esc(ts)}</span>`:''}
   </div>
   <div class="cf">
@@ -495,7 +518,12 @@ function render(){
     <button class="cbtn cbtn-a" onclick="cp('${esc(a.email)}','a',this,${idx})">复制账号</button>
     <button class="cbtn cbtn-p" onclick="cp('${esc(a.password)}','p',this,${idx})">复制密码</button>
   </div>
-  <div class="rocket-tip">⚠️ 如此账号未购买小火箭，请更换其他账号重试</div>
+  <div class="rocket-tip">⚠️ 如账号锁定不可以，请更换其他账号重试
+    <div class="buy-id-btns">
+      <a class="buy-id-btn buy-id-btn-1" href="https://3335.eu.cc" target="_blank" rel="noopener">🛒 购买独享ID（备用1）</a>
+      <a class="buy-id-btn buy-id-btn-2" href="https://tgsss.com/568FC132" target="_blank" rel="noopener">🛒 购买独享ID（备用2）</a>
+    </div>
+  </div>
   <div class="store-tip" id="st-${idx}">
     ✅ 密码已复制！登录 App Store 后点击下载小火箭：<br>
     <a href="${STORE_URL}" target="_blank">👉 前往 App Store 下载 Shadowrocket</a>

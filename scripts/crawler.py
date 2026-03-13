@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
 """
-Apple ID 共享账号爬虫 v3
-- 完整站点列表（16站点）
-- GitHub API 直接拉取账号
-- 默认保留账号，只过滤明确异常
-- 按检查时间降序排列
+Apple ID 共享账号爬虫 (加强版)
+- 基于 95ge.py，修复所有站点抓取不完整问题
+- 时间使用中国时间 UTC+8
+- 所有域名保持完整路径
 """
 
 import re, json, time, hashlib, logging, os
 from datetime import datetime, timezone, timedelta
-
-# 中国标准时间 UTC+8
-CST = timezone(timedelta(hours=8))
-
-def now_cst() -> str:
-    return datetime.now(CST).strftime("%Y-%m-%d %H:%M")
 
 import requests
 from bs4 import BeautifulSoup
@@ -27,6 +20,8 @@ from selenium.webdriver.support import expected_conditions as EC
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
+CST = timezone(timedelta(hours=8))
+
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
@@ -37,35 +32,36 @@ EMAIL_RE = re.compile(
     r"proton|pm|email|out1ok|live|msn)\.[a-z]{2,}\b",
     re.IGNORECASE)
 
-STATUS_BAD_KEYWORDS = {"异常", "不可用", "失效", "已失效", "暂无可用", "unavailable", "invalid", "error", "失效账号", "暂无"}
+STATUS_BAD = {"异常","不可用","失效","已失效","暂无可用","unavailable","invalid","error","失效账号","暂无"}
 
-def uid(email: str) -> str:
+def uid(email):
     return hashlib.md5(email.lower().encode()).hexdigest()[:12]
 
-def is_status_bad(status: str) -> bool:
-    if not status:
-        return False
+def bad(status):
+    if not status: return False
     s = status.lower().strip()
-    return any(kw in s for kw in STATUS_BAD_KEYWORDS)
+    return any(k in s for k in STATUS_BAD)
 
-def make_driver() -> webdriver.Chrome:
+def now_cst():
+    return datetime.now(CST).isoformat()
+
+def make_driver():
     opts = Options()
     opts.add_argument("--headless=new")
     opts.add_argument("--no-sandbox")
     opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--disable-gpu")
-    opts.add_argument("--window-size=1366,900")
+    opts.add_argument("--window-size=1280,900")
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
     opts.add_experimental_option("useAutomationExtension", False)
     opts.add_argument("user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
     driver = webdriver.Chrome(options=opts)
-    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-        "source": "Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"
-    })
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument",
+        {"source":"Object.defineProperty(navigator,'webdriver',{get:()=>undefined})"})
     return driver
 
-def dedup(lst: list) -> list:
+def dedup(lst):
     seen, out = set(), []
     for r in lst:
         e = r.get("email","").lower().strip()
@@ -73,45 +69,20 @@ def dedup(lst: list) -> list:
             seen.add(e); out.append(r)
     return out
 
-def is_bad_password(p: str) -> bool:
-    """过滤掉明显不是密码的字符串"""
-    if not p or len(p) < 5:
-        return True
-    # 完整日期格式
-    if re.match(r'^20\d\d[-/]\d\d[-/]\d\d$', p):
-        return True
-    # 日期片段如 03-13, 12-31
-    if re.match(r'^\d{2}-\d{2}$', p):
-        return True
-    # 8位纯数字年月日
-    if re.match(r'^20\d{6}$', p):
-        return True
-    # 常见弱密码
-    if p.lower() in {"password","12345678","123456","abcdefgh","qwerty123","88888888","00000000"}:
-        return True
-    # 全部相同字符
-    if len(set(p)) < 2:
-        return True
-    return False
-
-def parse_text(text: str) -> list:
-    """通用文本解析：内联对 + 上下文关联"""
+def parse_text(text):
     results, seen = [], set()
     INLINE = re.compile(
         r"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,})"
         r"[\s\t]*(?:密码|password|pwd)?[\s:：/|｜,，\t ]*"
-        r"([A-Za-z0-9!@#$%^&*()\-_=+\[\]{};:.]{6,32})",
-        re.IGNORECASE)
+        r"([A-Za-z0-9!@#$%^&*()\-_=+\[\]{};:.]{6,32})", re.IGNORECASE)
     CTX_PWD = re.compile(
         r"(?:密[码碼]|pass(?:word)?|pwd)\s*[：:=\s]\s*([A-Za-z0-9!@#$%^&*()\-_=+\[\]{};:.]{6,32})",
         re.IGNORECASE)
-
     for m in INLINE.finditer(text):
         e, p = m.group(1).lower(), m.group(2)
-        if (e, p) not in seen and not is_bad_password(p) and e not in p:
-            seen.add((e, p))
-            results.append({"email": e, "password": p, "status": "正常", "checked_at": ""})
-
+        if (e,p) not in seen and len(p)>=5:
+            seen.add((e,p))
+            results.append({"email":e,"password":p,"status":"正常","checked_at":""})
     lines = text.splitlines()
     for i, line in enumerate(lines):
         emails = EMAIL_RE.findall(line)
@@ -121,406 +92,490 @@ def parse_text(text: str) -> list:
         mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", ctx)
         if m:
             for e in emails:
-                pwd = m.group(1).strip()
-                k = (e.lower(), pwd)
-                if k not in seen and not is_bad_password(pwd):
+                k = (e.lower(), m.group(1).strip())
+                if k not in seen and len(k[1])>=5:
                     seen.add(k)
-                    results.append({"email": k[0], "password": pwd,
-                                    "status": "正常", "checked_at": mt.group(1) if mt else ""})
+                    results.append({"email":k[0],"password":k[1],
+                                    "status":"正常","checked_at":mt.group(1) if mt else ""})
     return results
 
-def scroll_page(driver, times=8, delay=0.6):
-    for _ in range(times):
-        driver.execute_script("window.scrollBy(0, 700);")
-        time.sleep(delay)
-
-JS_EXTRACT = """
-    var out=[];
-    var done=new Set();
-    document.querySelectorAll('*').forEach(function(el){
-        var txt=el.innerText||'';
-        if(!txt.includes('@')||txt.length>4000||txt.length<10) return;
+JS_INPUTS = """
+var out=[];
+document.querySelectorAll('input').forEach(function(inp){
+    var v=inp.value||'';
+    if(v&&v.length>=5&&!v.includes('@')){
+        var p=inp.closest('[class]')||inp.parentElement;
+        var txt=p?p.innerText:'';
         var em=txt.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
-        if(!em) return;
-        var email=em[0].toLowerCase();
-        if(done.has(email)) return;
-        var pwd='';
-        el.querySelectorAll('input').forEach(function(inp){
-            var v=inp.value||inp.getAttribute('value')||inp.defaultValue||'';
-            if(v&&v.length>=5&&!v.includes('@')) pwd=v;
-        });
-        if(!pwd){
-            var m=txt.match(/密[码碼][：:\\s*•·]+([A-Za-z0-9!@#$%^&*()\-_=+]{5,32})/);
-            if(m) pwd=m[1];
-        }
-        if(!pwd){
-            var after=txt.slice(txt.indexOf(em[0])+em[0].length);
-            var m2=after.match(/[^\\S\\n]*([A-Za-z0-9!@#$%^&*\-_=+]{6,24})[^\\S\\n]/);
-            if(!m2) m2=after.match(/\\b([A-Za-z0-9!@#$%^&*\-_=+]{6,24})\\b/);
-            if(m2) pwd=m2[1];
-        }
-        var tm=txt.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-        if(email&&pwd&&pwd.length>=5){
-            done.add(email);
-            out.push({email:email,pwd:pwd,time:tm?tm[0]:''});
-        }
-    });
-    return out;
+        if(em) out.push({email:em[0],pwd:v,txt:txt});
+    }
+});
+return out;
 """
 
-def js_extract(driver) -> list:
+def from_inputs(driver):
     try:
-        data = driver.execute_script(JS_EXTRACT)
-        results = []
+        data = driver.execute_script(JS_INPUTS)
+        results, seen = [], set()
         for d in (data or []):
-            if d.get("email") and d.get("pwd") and len(d["pwd"]) >= 5:
-                results.append({"email": d["email"].lower(), "password": d["pwd"],
-                                "status": "正常", "checked_at": d.get("time","")})
+            e = d.get("email","").lower()
+            p = d.get("pwd","")
+            if e and p and "@" in e and e not in seen and len(p)>=5:
+                seen.add(e)
+                txt = d.get("txt","")
+                mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", txt)
+                results.append({"email":e,"password":p,"status":"正常",
+                                "checked_at":mt.group(1) if mt else ""})
         return results
     except Exception:
         return []
 
-# ══════════════════════════════════════════════════════════════
-#  1. dongyubin/Free-AppleId-Serve  (GitHub API)
-# ══════════════════════════════════════════════════════════════
-def crawl_dongyubin_github_api(driver) -> list:
+def scroll(driver, n=8):
+    for _ in range(n):
+        driver.execute_script("window.scrollBy(0,700);")
+        time.sleep(0.6)
+
+def generic_parse(driver):
+    soup = BeautifulSoup(driver.page_source, "html.parser")
     results = []
-    try:
-        api = requests.get(
-            "https://api.github.com/repos/dongyubin/Free-AppleId-Serve/contents",
-            headers={**HEADERS, "Accept": "application/vnd.github.v3+json"},
-            timeout=12
-        )
-        files = []
-        if api.status_code == 200:
-            for f in api.json():
-                if f.get("type") == "file":
-                    files.append(f.get("download_url",""))
-        # 也加几个已知路径
-        files += [
-            "https://raw.githubusercontent.com/dongyubin/Free-AppleId-Serve/main/appleid.json",
-            "https://raw.githubusercontent.com/dongyubin/Free-AppleId-Serve/main/data.json",
-            "https://raw.githubusercontent.com/dongyubin/Free-AppleId-Serve/main/README.md",
-            "https://raw.githubusercontent.com/dongyubin/Free-AppleId-Serve/main/index.md",
-        ]
-        for url in files:
-            if not url: continue
-            try:
-                r = requests.get(url, headers=HEADERS, timeout=10)
-                if r.status_code != 200: continue
-                try:
-                    jdata = r.json()
-                    accs = jdata if isinstance(jdata, list) else jdata.get("accounts", jdata.get("data", []))
-                    for item in (accs or []):
-                        e = item.get("email","") or item.get("account","") or item.get("username","")
-                        p = item.get("password","") or item.get("pwd","")
-                        s = item.get("status","正常")
-                        t = item.get("checked_at","") or item.get("time","")
-                        if e and p and "@" in e and len(p) >= 4 and not is_status_bad(s):
-                            results.append({"email": e.lower(), "password": p, "status": "正常", "checked_at": t})
-                except Exception:
-                    parsed = [p for p in parse_text(r.text) if not is_status_bad(p.get("status",""))]
-                    results.extend(parsed)
-            except Exception:
-                pass
-    except Exception as e:
-        logger.error(f"  dongyubin失败: {e}")
-    logger.info(f"  dongyubin.github 共得 {len(results)} 条")
+    for card in soup.find_all(["div","li","article","section","tr"], recursive=True):
+        text = card.get_text(" ", strip=True)
+        if len(text)<15: continue
+        me = EMAIL_RE.search(text)
+        if not me: continue
+        mp = re.search(r"密[码碼][\s:：]*([A-Za-z0-9!@#$%^&*()\-_=+]{5,32})", text)
+        if not mp:
+            after = text[me.end():]
+            mp2 = re.search(r"\b([A-Za-z0-9!@#$%^&*\-_=+]{6,32})\b", after)
+            if not mp2: continue
+            pwd = mp2.group(1)
+        else:
+            pwd = mp.group(1)
+        mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
+        ms = re.search(r"(正常|可用|Normal|异常|不可用)", text, re.I)
+        status = ms.group(1) if ms else "正常"
+        if bad(status): continue
+        results.append({"email":me.group().lower(),"password":pwd,
+                        "status":"正常","checked_at":mt.group(1) if mt else ""})
     return dedup(results)
 
-# ══════════════════════════════════════════════════════════════
-#  2. shadowsockshelp.github.io  (requests)
-# ══════════════════════════════════════════════════════════════
-def crawl_github_shadowsocks(driver) -> list:
-    try:
-        r = requests.get(
-            "https://shadowsockshelp.github.io/Shadowsocks/appleid.html",
-            headers=HEADERS, timeout=15)
-        if r.status_code != 200: return []
-        results = [p for p in parse_text(BeautifulSoup(r.text,"html.parser").get_text("\n"))
-                   if not is_status_bad(p.get("status",""))]
-        logger.info(f"  shadowsockshelp.github.io 得 {len(results)} 条")
-        return dedup(results)
-    except Exception as e:
-        logger.error(f"  shadowsockshelp失败: {e}"); return []
-
-# ══════════════════════════════════════════════════════════════
-#  3. appledi.github.io  (requests)
-# ══════════════════════════════════════════════════════════════
-def crawl_appledi_github(driver) -> list:
-    try:
-        r = requests.get("https://appledi.github.io/", headers=HEADERS, timeout=15)
-        if r.status_code != 200: return []
-        results = [p for p in parse_text(BeautifulSoup(r.text,"html.parser").get_text("\n"))
-                   if not is_status_bad(p.get("status",""))]
-        logger.info(f"  appledi.github.io 得 {len(results)} 条")
-        return dedup(results)
-    except Exception as e:
-        logger.error(f"  appledi.github.io失败: {e}"); return []
-
-# ══════════════════════════════════════════════════════════════
-#  4. ccbaohe.com/appleID/  (Selenium, 有100+账号)
-# ══════════════════════════════════════════════════════════════
-def crawl_ccbaohe(driver) -> list:
+# ──────────────────────────────────────────
+# dongyubin GitHub API
+# ──────────────────────────────────────────
+def crawl_dongyubin_api():
     results = []
-    for url in ["https://ccbaohe.com/appleID/", "https://ccbaohe.com/appleID2/"]:
-        logger.info(f"  ccbaohe: {url}")
+    urls = [
+        "https://raw.githubusercontent.com/dongyubin/Free-AppleId-Serve/main/apple_share_ids.json",
+        "https://raw.githubusercontent.com/dongyubin/Free-AppleId-Serve/main/ids.json",
+        "https://raw.githubusercontent.com/dongyubin/Free-AppleId-Serve/master/apple_share_ids.json",
+        "https://raw.githubusercontent.com/dongyubin/Free-AppleId-Serve/master/ids.json",
+    ]
+    for url in urls:
         try:
-            driver.get(url)
-            time.sleep(5)
-            scroll_page(driver, 8)
-            r1 = js_extract(driver)
-            if not r1:
-                soup = BeautifulSoup(driver.page_source, "html.parser")
-                r1 = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
-            results.extend(r1)
-            logger.info(f"    {url} 得 {len(r1)} 条")
+            r = requests.get(url, headers=HEADERS, timeout=15)
+            if r.status_code != 200: continue
+            data = r.json()
+            items = data if isinstance(data, list) else data.get("accounts", data.get("ids", []))
+            for item in (items or []):
+                if not isinstance(item, dict): continue
+                email = (item.get("email") or item.get("account") or item.get("id") or "").lower()
+                pwd = str(item.get("password") or item.get("pwd") or item.get("pass") or "")
+                status = item.get("status","正常")
+                if email and pwd and "@" in email and len(pwd)>=4 and not bad(status):
+                    results.append({"email":email,"password":pwd,"status":"正常",
+                                    "checked_at":item.get("checked_at","")})
+            if results:
+                logger.info(f"  dongyubin API ok: {len(results)} 条")
+                break
         except Exception as e:
-            logger.error(f"  ccbaohe {url} 失败: {e}")
-        time.sleep(2)
+            logger.warning(f"  dongyubin {url}: {e}")
     return dedup(results)
 
-# ══════════════════════════════════════════════════════════════
-#  5. shadowrocket.best  (Selenium)
-# ══════════════════════════════════════════════════════════════
-def crawl_shadowrocket_best(driver) -> list:
+def crawl_dongyubin_page(driver):
+    for url in ["https://dongyubin.github.io/","https://dongyubin.github.io/appleid"]:
+        try:
+            driver.get(url); time.sleep(4); scroll(driver)
+            soup = BeautifulSoup(driver.page_source,"html.parser")
+            r = [p for p in parse_text(soup.get_text("\n")) if not bad(p.get("status",""))]
+            if r: return dedup(r)
+        except Exception: pass
+    return []
+
+# ──────────────────────────────────────────
+# shadowsockshelp.github.io
+# ──────────────────────────────────────────
+def crawl_shadowsockshelp(driver):
+    for url in [
+        "https://shadowsockshelp.github.io/ios/apple-id-share.html",
+        "https://shadowsockshelp.github.io/Shadowsocks/apple-id-share.html",
+        "https://shadowsockshelp.github.io/",
+    ]:
+        try:
+            driver.get(url); time.sleep(4); scroll(driver)
+            soup = BeautifulSoup(driver.page_source,"html.parser")
+            results = []
+            for table in soup.find_all("table"):
+                rows = table.find_all("tr")
+                if not rows: continue
+                headers = [th.get_text(strip=True).lower() for th in rows[0].find_all(["th","td"])]
+                ec = next((i for i,h in enumerate(headers) if "email" in h or "账" in h or "@" in h), None)
+                pc = next((i for i,h in enumerate(headers) if "pass" in h or "密" in h or "pwd" in h), None)
+                if ec is None or pc is None: continue
+                for row in rows[1:]:
+                    cells = [td.get_text(strip=True) for td in row.find_all("td")]
+                    if len(cells) > max(ec,pc):
+                        e,p = cells[ec].lower(), cells[pc]
+                        if "@" in e and len(p)>=5:
+                            results.append({"email":e,"password":p,"status":"正常","checked_at":""})
+            if not results:
+                results = [p for p in parse_text(soup.get_text("\n")) if not bad(p.get("status",""))]
+            if results: return dedup(results)
+        except Exception as e:
+            logger.warning(f"  shadowsockshelp {url}: {e}")
+    return []
+
+# ──────────────────────────────────────────
+# appledi.github.io
+# ──────────────────────────────────────────
+def crawl_appledi_github(driver):
+    for url in ["https://appledi.github.io/","https://appledi.github.io/index.html"]:
+        try:
+            driver.get(url); time.sleep(4); scroll(driver)
+            r = from_inputs(driver)
+            if not r: r = generic_parse(driver)
+            if r: return dedup(r)
+        except Exception as e:
+            logger.warning(f"  appledi {url}: {e}")
+    return []
+
+# ──────────────────────────────────────────
+# ccbaohe.com/appleID
+# ──────────────────────────────────────────
+def crawl_ccbaohe(driver):
+    driver.get("https://ccbaohe.com/appleID")
+    time.sleep(5); scroll(driver)
+    r = from_inputs(driver)
+    if not r:
+        soup = BeautifulSoup(driver.page_source,"html.parser")
+        r = [p for p in parse_text(soup.get_text("\n")) if not bad(p.get("status",""))]
+    return dedup(r)
+
+# ──────────────────────────────────────────
+# shadowrocket.best/
+# ──────────────────────────────────────────
+def crawl_shadowrocket_best(driver):
     driver.get("https://shadowrocket.best/")
     time.sleep(5)
-    scroll_page(driver, 10)
-    results = js_extract(driver)
-    if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
-    return dedup(results)
+    for _ in range(12):
+        driver.execute_script("window.scrollBy(0,800);"); time.sleep(0.6)
+    driver.execute_script("window.scrollTo(0,0)"); time.sleep(1)
 
-# ══════════════════════════════════════════════════════════════
-#  6. free.iosapp.icu  (Selenium)
-# ══════════════════════════════════════════════════════════════
-def crawl_free_iosapp_icu(driver) -> list:
+    r = from_inputs(driver)
+    seen = {x["email"] for x in r}
+
+    soup = BeautifulSoup(driver.page_source,"html.parser")
+    for card in soup.find_all(["div","li"], recursive=True):
+        if len(list(card.children))<2: continue
+        text = card.get_text(" ",strip=True)
+        if len(text)<15: continue
+        me = EMAIL_RE.search(text)
+        if not me or me.group().lower() in seen: continue
+        mp = re.search(r"密[码碼][\s:：]*([A-Za-z0-9!@#$%^&*()\-_=+]{5,32})", text)
+        if not mp:
+            after = text[me.end():]
+            mp2 = re.search(r"\b([A-Za-z0-9!@#$%^&*\-_=+]{6,32})\b", after)
+            if not mp2: continue
+            pwd = mp2.group(1)
+        else:
+            pwd = mp.group(1)
+        mt = re.search(r"更[新新]?[:：\s]*(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
+        if not mt: mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
+        e = me.group().lower(); seen.add(e)
+        r.append({"email":e,"password":pwd,"status":"正常",
+                  "checked_at":mt.group(1) if mt else ""})
+    return dedup(r)
+
+# ──────────────────────────────────────────
+# free.iosapp.icu/
+# ──────────────────────────────────────────
+def crawl_free_iosapp_icu(driver):
     driver.get("https://free.iosapp.icu/")
-    time.sleep(5)
-    scroll_page(driver, 5)
-    results = js_extract(driver)
-    if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
-    return dedup(results)
+    time.sleep(5); scroll(driver)
+    r = from_inputs(driver)
+    seen = {x["email"] for x in r}
+    soup = BeautifulSoup(driver.page_source,"html.parser")
+    for card in soup.find_all(["div","section"], recursive=True):
+        text = card.get_text(" ",strip=True)
+        if len(text)<20: continue
+        me = re.search(r"账[号号][:：\s]*(" + EMAIL_RE.pattern + r")", text, re.I)
+        mp = re.search(r"密[码碼][:：\s]*([A-Za-z0-9!@#$%^&*()\-_=+]{5,32})", text)
+        ms = re.search(r"状[态態][:：\s]*(\S+)", text)
+        mt = re.search(r"检查时间[:：\s]*(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
+        if me and mp:
+            e = me.group(1).lower()
+            if e in seen: continue
+            status = ms.group(1) if ms else "正常"
+            if bad(status): continue
+            seen.add(e)
+            r.append({"email":e,"password":mp.group(1),"status":status,
+                      "checked_at":mt.group(1) if mt else ""})
+    return dedup(r)
 
-# ══════════════════════════════════════════════════════════════
-#  7. idfree.top  (Selenium)
-# ══════════════════════════════════════════════════════════════
-def crawl_idfree_top(driver) -> list:
+# ──────────────────────────────────────────
+# idfree.top/
+# ──────────────────────────────────────────
+def crawl_idfree_top(driver):
     driver.get("https://idfree.top/")
     time.sleep(4)
-    try:
-        btn = WebDriverWait(driver, 8).until(EC.element_to_be_clickable((By.XPATH,
-            "//button[contains(.,'我已阅读') or contains(.,'继续查看') or contains(.,'查看账号') or contains(.,'确认')]")))
-        driver.execute_script("arguments[0].click();", btn)
-        time.sleep(3)
-    except Exception: pass
-    scroll_page(driver, 5)
-    results = js_extract(driver)
-    if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
-    return dedup(results)
+    for sel in ["//button[contains(.,'我已阅读')]","//button[contains(.,'继续查看')]",
+                "//button[contains(.,'查看账号')]","//a[contains(.,'继续')]"]:
+        try:
+            btn = WebDriverWait(driver,6).until(EC.element_to_be_clickable((By.XPATH,sel)))
+            driver.execute_script("arguments[0].click();",btn); time.sleep(3); break
+        except Exception: pass
+    scroll(driver)
+    r = from_inputs(driver)
+    if r: return dedup(r)
+    emails = EMAIL_RE.findall(driver.page_source)
+    inputs = driver.find_elements(By.CSS_SELECTOR,"input")
+    pwds = [v for v in [driver.execute_script("return arguments[0].value;",i) for i in inputs]
+            if v and len(v)>=5 and "@" not in v]
+    soup = BeautifulSoup(driver.page_source,"html.parser")
+    page_text = soup.get_text("\n")
+    seen, out = set(), []
+    for i,email in enumerate(emails):
+        e = email.lower()
+        if e in seen: continue
+        pwd = pwds[i] if i<len(pwds) else (pwds[0] if pwds else "")
+        if not pwd: continue
+        idx = page_text.find(email)
+        ctx = page_text[max(0,idx-50):idx+200] if idx>=0 else ""
+        mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", ctx)
+        ms = re.search(r"(正常|异常|可用)", ctx)
+        status = ms.group(1) if ms else "正常"
+        if bad(status): continue
+        seen.add(e)
+        out.append({"email":e,"password":pwd,"status":"正常","checked_at":mt.group(1) if mt else ""})
+    return out
 
-# ══════════════════════════════════════════════════════════════
-#  8. id.btvda.top  (Selenium)
-# ══════════════════════════════════════════════════════════════
-def crawl_id_btvda_top(driver) -> list:
+# ──────────────────────────────────────────
+# id.btvda.top/
+# ──────────────────────────────────────────
+def crawl_id_btvda_top(driver):
     driver.get("https://id.btvda.top/")
-    time.sleep(5)
-    scroll_page(driver, 5)
-    results = js_extract(driver)
-    if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
-    return dedup(results)
+    time.sleep(5); scroll(driver)
+    r = from_inputs(driver)
+    if not r: r = generic_parse(driver)
+    if not r:
+        soup = BeautifulSoup(driver.page_source,"html.parser")
+        r = [p for p in parse_text(soup.get_text("\n")) if not bad(p.get("status",""))]
+    return dedup(r)
 
-# ══════════════════════════════════════════════════════════════
-#  9. idshare001.me  (Selenium)
-# ══════════════════════════════════════════════════════════════
-def crawl_idshare001(driver) -> list:
+# ──────────────────────────────────────────
+# idshare001.me/goso.html
+# ──────────────────────────────────────────
+def crawl_idshare001(driver):
     driver.get("https://idshare001.me/goso.html")
     time.sleep(5)
-    scroll_page(driver, 5)
     results = []
     try:
         data = driver.execute_script("""
             var out=[];
-            document.querySelectorAll('[data-account],[data-email],[data-id],[data-username],[data-copy]').forEach(function(el){
+            document.querySelectorAll('[data-account],[data-email],[data-id],[data-username]').forEach(function(el){
                 var email=el.getAttribute('data-account')||el.getAttribute('data-email')||
                           el.getAttribute('data-id')||el.getAttribute('data-username')||'';
-                var pwd=el.getAttribute('data-password')||el.getAttribute('data-pwd')||
-                        el.getAttribute('data-copy')||'';
-                if(email&&email.includes('@')&&pwd&&pwd.length>=4) out.push({email:email,pwd:pwd});
+                var pwd=el.getAttribute('data-password')||el.getAttribute('data-pwd')||'';
+                if(email&&email.includes('@')) out.push({email:email,pwd:pwd});
             });
             return out;
         """)
         for d in (data or []):
-            results.append({"email": d["email"].lower(), "password": d["pwd"],
-                            "status": "正常", "checked_at": ""})
+            if d.get("email") and d.get("pwd") and len(d["pwd"])>=5:
+                results.append({"email":d["email"].lower(),"password":d["pwd"],"status":"正常","checked_at":""})
     except Exception: pass
     if not results:
-        results = js_extract(driver)
-    if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
+        scroll(driver)
+        r2 = from_inputs(driver)
+        if not r2: r2 = generic_parse(driver)
+        results = r2
     return dedup(results)
 
-# ══════════════════════════════════════════════════════════════
-#  10. app.iosr.cn  (Selenium)
-# ══════════════════════════════════════════════════════════════
-def crawl_app_iosr_cn(driver) -> list:
+# ──────────────────────────────────────────
+# app.iosr.cn/tools/apple-shared-id
+# ──────────────────────────────────────────
+def crawl_app_iosr_cn(driver):
     driver.get("https://app.iosr.cn/tools/apple-shared-id")
     time.sleep(6)
     try:
-        driver.find_element(By.XPATH,"//button[contains(.,'刷新') or contains(.,'获取')]").click()
-        time.sleep(3)
+        driver.find_element(By.XPATH,"//button[contains(.,'刷新')]").click(); time.sleep(3)
     except Exception: pass
-    results = js_extract(driver)
-    if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
+    scroll(driver)
+    r = from_inputs(driver)
+    if r: return dedup(r)
+    soup = BeautifulSoup(driver.page_source,"html.parser")
+    results = []
+    for card in soup.find_all(["div","li","article"], recursive=True):
+        text = card.get_text(" ",strip=True)
+        if len(text)<15: continue
+        me = EMAIL_RE.search(text)
+        if not me: continue
+        mp = re.search(r"密[码碼][\s:：]*([A-Za-z0-9!@#$%^&*()\-_=+]{5,32})", text)
+        if not mp:
+            after = text[me.end():]
+            mp2 = re.search(r"\b([A-Za-z0-9]{8,24})\b", after)
+            if not mp2: continue
+            pwd = mp2.group(1)
+        else:
+            pwd = mp.group(1)
+        mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
+        ms = re.search(r"(正常|正常使用|可用|Normal)", text, re.I)
+        status = ms.group(1) if ms else "正常"
+        if bad(status): continue
+        results.append({"email":me.group().lower(),"password":pwd,"status":"正常",
+                        "checked_at":mt.group(1) if mt else ""})
     return dedup(results)
 
-# ══════════════════════════════════════════════════════════════
-#  11. id.bocchi2b.top  (Selenium + 弹窗)
-# ══════════════════════════════════════════════════════════════
-def crawl_bocchi2b(driver) -> list:
+# ──────────────────────────────────────────
+# id.bocchi2b.top/
+# ──────────────────────────────────────────
+def crawl_bocchi2b(driver):
     driver.get("https://id.bocchi2b.top/")
-    time.sleep(4)
-    for sel in ["//button[text()='Ok']","//button[text()='OK']","//button[text()='确认']",
-                "//button[contains(@class,'ok')]","//div[contains(@class,'modal')]//button",
-                "//button[contains(.,'关闭')]","//button[contains(.,'我知道')]"]:
+    time.sleep(3)
+    for sel in ["//button[text()='Ok']","//button[text()='OK']","//button[contains(@class,'ok')]",
+                "//div[contains(@class,'modal')]//button"]:
         try:
-            btn = WebDriverWait(driver, 3).until(EC.element_to_be_clickable((By.XPATH, sel)))
-            driver.execute_script("arguments[0].click();", btn)
-            time.sleep(1); break
+            btn = WebDriverWait(driver,4).until(EC.element_to_be_clickable((By.XPATH,sel)))
+            driver.execute_script("arguments[0].click();",btn); time.sleep(1); break
         except Exception: pass
-    scroll_page(driver, 8)
-    results = js_extract(driver)
-    if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
-    return dedup(results)
+    scroll(driver)
+    r = from_inputs(driver)
+    if not r: r = generic_parse(driver)
+    return dedup(r)
 
-# ══════════════════════════════════════════════════════════════
-#  12. 139.196.183.52/share/DZhBvnglEU  (Selenium)
-# ══════════════════════════════════════════════════════════════
-def crawl_ip_share(driver) -> list:
+# ──────────────────────────────────────────
+# 139.196.183.52/share/DZhBvnglEU
+# ──────────────────────────────────────────
+def crawl_ip_share(driver):
     driver.get("http://139.196.183.52/share/DZhBvnglEU")
-    time.sleep(5)
-    scroll_page(driver, 5)
-    results = js_extract(driver)
-    if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
-    return dedup(results)
+    time.sleep(5); scroll(driver)
+    r = from_inputs(driver)
+    if not r: r = generic_parse(driver)
+    return dedup(r)
 
-# ══════════════════════════════════════════════════════════════
-#  13. nodeba.com  (Selenium + 进文章)
-# ══════════════════════════════════════════════════════════════
-def crawl_nodeba(driver) -> list:
+# ──────────────────────────────────────────
+# nodeba.com/
+# ──────────────────────────────────────────
+def crawl_nodeba(driver):
     driver.get("https://nodeba.com/")
-    time.sleep(5)
+    time.sleep(4)
     results = []
     try:
         links = driver.find_elements(By.CSS_SELECTOR,
-            "article a, h1 a, h2 a, h3 a, .post-title a, .entry-title a, a[href*='nodeba.com']")
+            "article a,h2 a,h3 a,.post-title a,.entry-title a,.post a")
         article_url = None
         for link in links:
             href = link.get_attribute("href") or ""
-            txt  = (link.text or "").strip()
-            if "nodeba.com" in href and href.rstrip("/") not in ("https://nodeba.com","http://nodeba.com") and \
-               any(kw in txt for kw in ["Apple","apple","ID","账号","共享","苹果","apple id"]):
+            txt  = link.text or ""
+            if "nodeba.com" in href and href != "https://nodeba.com/" and \
+               any(kw in txt for kw in ["Apple","apple","ID","账号","共享","苹果"]):
                 article_url = href; break
-        if not article_url:
-            for link in links[:5]:
-                h = link.get_attribute("href") or ""
-                if "nodeba.com" in h and h.rstrip("/") not in ("https://nodeba.com","http://nodeba.com"):
-                    article_url = h; break
-        logger.info(f"  nodeba文章: {article_url}")
+        if not article_url and links:
+            article_url = links[0].get_attribute("href")
         if article_url:
-            driver.get(article_url)
-            time.sleep(5)
-            scroll_page(driver, 4)
-            results = js_extract(driver)
-            if not results:
-                soup = BeautifulSoup(driver.page_source, "html.parser")
-                results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
+            driver.get(article_url); time.sleep(4)
+            soup = BeautifulSoup(driver.page_source,"html.parser")
+            results = [p for p in parse_text(soup.get_text("\n")) if not bad(p.get("status",""))]
     except Exception as e:
-        logger.error(f"  nodeba失败: {e}")
+        logger.error(f"  nodeba: {e}")
     return dedup(results)
 
-# ══════════════════════════════════════════════════════════════
-#  14. tkbaohe.com/Shadowrocket/  (Selenium)
-# ══════════════════════════════════════════════════════════════
-def crawl_tkbaohe(driver) -> list:
+# ──────────────────────────────────────────
+# tkbaohe.com/Shadowrocket/
+# ──────────────────────────────────────────
+def crawl_tkbaohe(driver):
     driver.get("https://tkbaohe.com/Shadowrocket/")
-    time.sleep(6)
-    scroll_page(driver, 6)
-    results = js_extract(driver)
-    if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
-    return dedup(results)
+    time.sleep(5); scroll(driver)
+    r = from_inputs(driver)
+    if r: return dedup(r)
+    soup = BeautifulSoup(driver.page_source,"html.parser")
+    r2 = [p for p in parse_text(soup.get_text("\n")) if not bad(p.get("status",""))]
+    return dedup(r2)
 
-# ══════════════════════════════════════════════════════════════
-#  15. ios.aneeo.com  (Selenium)
-# ══════════════════════════════════════════════════════════════
-def crawl_aneeo(driver) -> list:
+# ──────────────────────────────────────────
+# ios.aneeo.com/
+# ──────────────────────────────────────────
+def crawl_ios_aneeo(driver):
     driver.get("https://ios.aneeo.com/")
     time.sleep(5)
-    scroll_page(driver, 5)
-    results = js_extract(driver)
-    if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
-    return dedup(results)
+    for sel in ["//button[contains(.,'知道了')]","//button[contains(.,'我知道了')]",
+                "//button[contains(.,'确定')]","//button[contains(.,'关闭')]"]:
+        try:
+            btn = WebDriverWait(driver,3).until(EC.element_to_be_clickable((By.XPATH,sel)))
+            driver.execute_script("arguments[0].click();",btn); time.sleep(1); break
+        except Exception: pass
+    scroll(driver)
+    r = from_inputs(driver)
+    if not r: r = generic_parse(driver)
+    return dedup(r)
 
-# ══════════════════════════════════════════════════════════════
-#  16. clashid.com.cn  (Selenium)
-# ══════════════════════════════════════════════════════════════
-def crawl_clashid(driver) -> list:
-    driver.get("https://clashid.com.cn/shadowrocket-apple-id")
-    time.sleep(5)
-    scroll_page(driver, 5)
-    results = js_extract(driver)
-    if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        results = [p for p in parse_text(soup.get_text("\n")) if not is_status_bad(p.get("status",""))]
-    return dedup(results)
+# ──────────────────────────────────────────
+# clashid.com.cn/
+# ──────────────────────────────────────────
+def crawl_clashid(driver):
+    for url in ["https://clashid.com.cn/","http://clashid.com.cn/"]:
+        try:
+            driver.get(url); time.sleep(5); scroll(driver)
+            r = from_inputs(driver)
+            if not r:
+                soup = BeautifulSoup(driver.page_source,"html.parser")
+                r = [p for p in parse_text(soup.get_text("\n")) if not bad(p.get("status",""))]
+            if r: return dedup(r)
+        except Exception as e:
+            logger.warning(f"  clashid {url}: {e}")
+    return []
 
-# ══════════════════════════════════════════════════════════════
-#  站点列表
-# ══════════════════════════════════════════════════════════════
+
 SITES = [
-    {"name": "dongyubin.github(API)",     "fn": crawl_dongyubin_github_api},
-    {"name": "shadowsockshelp.github.io", "fn": crawl_github_shadowsocks},
-    {"name": "appledi.github.io",         "fn": crawl_appledi_github},
-    {"name": "ccbaohe.com/appleID",       "fn": crawl_ccbaohe},
-    {"name": "shadowrocket.best",         "fn": crawl_shadowrocket_best},
-    {"name": "free.iosapp.icu",           "fn": crawl_free_iosapp_icu},
-    {"name": "idfree.top",               "fn": crawl_idfree_top},
-    {"name": "id.btvda.top",             "fn": crawl_id_btvda_top},
-    {"name": "idshare001.me",            "fn": crawl_idshare001},
-    {"name": "app.iosr.cn",              "fn": crawl_app_iosr_cn},
-    {"name": "id.bocchi2b.top",          "fn": crawl_bocchi2b},
-    {"name": "139.196.183.52",           "fn": crawl_ip_share},
-    {"name": "nodeba.com",               "fn": crawl_nodeba},
-    {"name": "tkbaohe.com",              "fn": crawl_tkbaohe},
-    {"name": "ios.aneeo.com",            "fn": crawl_aneeo},
-    {"name": "clashid.com.cn",           "fn": crawl_clashid},
+    {"name":"shadowsockshelp.github.io", "fn":crawl_shadowsockshelp},
+    {"name":"appledi.github.io",          "fn":crawl_appledi_github},
+    {"name":"ccbaohe.com/appleID",        "fn":crawl_ccbaohe},
+    {"name":"shadowrocket.best",          "fn":crawl_shadowrocket_best},
+    {"name":"free.iosapp.icu",            "fn":crawl_free_iosapp_icu},
+    {"name":"idfree.top",                 "fn":crawl_idfree_top},
+    {"name":"id.btvda.top",              "fn":crawl_id_btvda_top},
+    {"name":"idshare001.me",              "fn":crawl_idshare001},
+    {"name":"app.iosr.cn",               "fn":crawl_app_iosr_cn},
+    {"name":"id.bocchi2b.top",           "fn":crawl_bocchi2b},
+    {"name":"139.196.183.52",            "fn":crawl_ip_share},
+    {"name":"nodeba.com",                "fn":crawl_nodeba},
+    {"name":"tkbaohe.com",              "fn":crawl_tkbaohe},
+    {"name":"ios.aneeo.com",             "fn":crawl_ios_aneeo},
+    {"name":"clashid.com.cn",            "fn":crawl_clashid},
 ]
 
-# ══════════════════════════════════════════════════════════════
-#  主逻辑
-# ══════════════════════════════════════════════════════════════
-def crawl_all() -> dict:
-    seen:         dict = {}
-    source_stats: dict = {}
+def crawl_all():
+    seen, source_stats = {}, {}
+
+    # dongyubin API
+    logger.info("▶ 抓取 dongyubin API...")
+    try:
+        pairs = crawl_dongyubin_api()
+        nc = 0
+        for p in pairs:
+            e = p.get("email","").strip().lower()
+            pw = p.get("password","").strip()
+            if not e or not pw or "@" not in e or len(pw)<4: continue
+            if len(set(pw))<2: continue
+            if e not in seen:
+                seen[e] = {"id":uid(e),"email":e,"password":pw,"status":p.get("status","正常"),
+                           "checked_at":p.get("checked_at",""),"source":"dongyubin.github(API)",
+                           "updated_at":now_cst()}
+                nc += 1
+        source_stats["dongyubin.github(API)"] = nc
+        logger.info(f"  → 新增 {nc} 条")
+    except Exception as e:
+        logger.error(f"  dongyubin API: {e}")
+        source_stats["dongyubin.github(API)"] = 0
 
     logger.info("启动浏览器...")
     driver = make_driver()
@@ -530,52 +585,57 @@ def crawl_all() -> dict:
             try:
                 pairs = site["fn"](driver)
             except Exception as e:
-                logger.error(f"  站点异常 {site['name']}: {e}")
+                logger.error(f"  {site['name']}: {e}")
                 pairs = []
-
-            new_count = 0
-            now_iso = now_cst()
+            nc = 0
             for p in pairs:
-                email = p.get("email","").strip().lower()
-                pwd   = p.get("password","").strip()
-                if not email or not pwd or "@" not in email or len(pwd) < 4:
-                    continue
-                if is_bad_password(pwd):
-                    continue
-                if email not in seen:
-                    seen[email] = {
-                        "id":         uid(email),
-                        "email":      email,
-                        "password":   pwd,
-                        "status":     "正常",
-                        "checked_at": p.get("checked_at", ""),
-                        "source":     site["name"],
-                        "updated_at": now_iso,
-                    }
-                    new_count += 1
+                e = p.get("email","").strip().lower()
+                pw = p.get("password","").strip()
+                if not e or not pw or "@" not in e or len(pw)<4: continue
+                if len(set(pw))<2: continue
+                if e not in seen:
+                    seen[e] = {"id":uid(e),"email":e,"password":pw,"status":p.get("status","正常"),
+                               "checked_at":p.get("checked_at",""),"source":site["name"],
+                               "updated_at":now_cst()}
+                    nc += 1
+            source_stats[site["name"]] = nc
+            logger.info(f"  → 新增 {nc} 条（共 {len(seen)} 条）")
+            time.sleep(2)
 
-            source_stats[site["name"]] = new_count
-            logger.info(f"  → 新增 {new_count} 条（去重后共 {len(seen)} 条）")
-            time.sleep(1)
+        # dongyubin 页面补充
+        if source_stats.get("dongyubin.github(API)",0) == 0:
+            logger.info("▶ dongyubin 页面补充...")
+            try:
+                pairs = crawl_dongyubin_page(driver)
+                nc = 0
+                for p in pairs:
+                    e = p.get("email","").strip().lower()
+                    pw = p.get("password","").strip()
+                    if not e or not pw or "@" not in e or len(pw)<4: continue
+                    if e not in seen:
+                        seen[e] = {"id":uid(e),"email":e,"password":pw,"status":"正常",
+                                   "checked_at":"","source":"dongyubin.github(page)",
+                                   "updated_at":now_cst()}
+                        nc += 1
+                source_stats["dongyubin.github(API)"] = nc
+                logger.info(f"  → 补充 {nc} 条")
+            except Exception as e:
+                logger.error(f"  dongyubin page: {e}")
     finally:
         driver.quit()
         logger.info("浏览器已关闭")
 
-    def sort_key(a):
-        t = a.get("checked_at","") or a.get("updated_at","")
-        return t
-
-    accounts = sorted(seen.values(), key=sort_key, reverse=True)
+    accounts = sorted(seen.values(), key=lambda a: a.get("checked_at","") or a.get("updated_at",""), reverse=True)
     return {
-        "generated_at": now_cst(),
-        "total":         len(accounts),
-        "source_stats":  source_stats,
-        "accounts":      accounts,
+        "generated_at": datetime.now(CST).isoformat(),
+        "total": len(accounts),
+        "source_stats": source_stats,
+        "accounts": accounts,
     }
 
 if __name__ == "__main__":
-    output_path = os.environ.get("OUTPUT_FILE", "apple_ids.json")
+    output_path = os.environ.get("OUTPUT_FILE","apple_ids.json")
     result = crawl_all()
-    with open(output_path, "w", encoding="utf-8") as f:
+    with open(output_path,"w",encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     logger.info(f"✅ 完成！共输出 {result['total']} 条账号 → {output_path}")

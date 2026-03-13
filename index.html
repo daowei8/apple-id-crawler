@@ -308,7 +308,7 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
   </div>
   <div class="nav-cnt">共 <b id="hTotal">-</b> 个账号</div>
   <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="切换主题">🌙</button>
-  <a class="buy-btn" href="https://3335.eu.cc" target="_blank" rel="noopener">购买海外账号</a>
+  <a class="buy-btn" href="https://3335.eu.cc" target="_blank" rel="noopener">🛒 购买海外账号</a>
 </nav>
 
 <!-- BANNER 与内容等宽 -->
@@ -491,8 +491,8 @@ function render(){
     const isLocked=a.status&&(a.status.includes('锁')||a.status.includes('异常')||a.status.includes('失效'));
     const statusBadge=a.status
       ?`<span class="badge ${isLocked?'badge-lock':'badge-ok'}">${isLocked?'🔒':'✅'} ${esc(a.status)}</span>`:'';
-    const country=a.country||'美国';
-    const countryBadge=`<span class="badge badge-country">🌏 ${esc(country)}</span>`;
+    const country=a.country||'';
+    const countryBadge=country?`<span class="badge badge-country">🌏 ${esc(country)}</span>`:`<span class="badge badge-country">🌏 未知</span>`;
     return `<div class="id-card">
   <div class="ct">
     <span class="cn">#${idx+1}</span>

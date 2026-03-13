@@ -495,8 +495,8 @@ function render(){
     const isLocked=a.status&&(a.status.includes('锁')||a.status.includes('异常')||a.status.includes('失效'));
     const statusBadge=a.status
       ?`<span class="badge ${isLocked?'badge-lock':'badge-ok'}">${isLocked?'🔒':'✅'} ${esc(a.status)}</span>`:'';
-    const country=a.country||'';
-    const countryBadge=country?`<span class="badge badge-country">🌏 ${esc(country)}</span>`:`<span class="badge badge-country">🌏 未知</span>`;
+    const country=a.country||'美国';
+    const countryBadge=`<span class="badge badge-country">🌏 ${esc(country)}</span>`;
     return `<div class="id-card">
   <div class="ct">
     <span class="cn">#${idx+1}</span>

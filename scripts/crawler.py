@@ -379,10 +379,9 @@ return out;
         return []
 
 
+
 # ══════════════════════════════════════════════════════════════════
-# 核心解析引擎：data-clipboard-text + Cloudflare 邮件保护
-# 这是所有站点的首选解析方式，适用于同类框架（ccbaohe/tkbaohe/
-# bocchi2b/btvda/idshare001 等均使用此框架）
+# 核心解析引擎：data-clipboard-text + Cloudflare 邮件保护 + onclick copy()
 # ══════════════════════════════════════════════════════════════════
 
 def decode_cfemail(encoded: str) -> str:
@@ -397,28 +396,22 @@ def decode_cfemail(encoded: str) -> str:
 
 def parse_clipboard_site(html: str) -> list:
     """
-    解析所有使用 data-clipboard-text 按钮 + Cloudflare 邮件保护的站点。
-    直接从按钮属性读账号和密码，不靠文本匹配，100%准确。
-    支持框架：ccbaohe / tkbaohe / bocchi2b / btvda / idshare001 / 139.196.x.x 等
+    解析使用 data-clipboard-text 按钮的账号分享页面。
+    适用于 139.196.183.52/share/* 等同类框架站点。
     """
     soup = BeautifulSoup(html, "lxml")
     results = []
-
-    # 找所有账号卡片
     cards = soup.select(".card-body")
     if not cards:
-        # 降级：找含复制按钮的父容器
         seen_parents = []
         for btn in soup.select("[data-clipboard-text]"):
-            p = btn.find_parent(class_=lambda c: c and ("col" in c or "card" in c or "item" in c or "account" in c))
+            p = btn.find_parent(class_=lambda c: c and any(k in c for k in ("col", "card", "item", "account")))
             if p and p not in seen_parents:
                 seen_parents.append(p)
         cards = seen_parents if seen_parents else [soup]
 
     for card in cards:
-        # ── 账号 ──
         email = ""
-        # 优先：copy-btn / username_ 按钮的 data-clipboard-text
         for sel in [".copy-btn", "[id^='username_']", "button.btn-primary[data-clipboard-text]"]:
             btn = card.select_one(sel)
             if btn:
@@ -426,12 +419,10 @@ def parse_clipboard_site(html: str) -> list:
                 if v and "@" in v:
                     email = v
                     break
-        # 备用：解码 Cloudflare 邮件保护
         if not email:
             cf = card.select_one(".__cf_email__")
             if cf:
                 email = decode_cfemail(cf.get("data-cfemail", "")).lower()
-        # 兜底：正则
         if not email:
             m = EMAIL_RE.search(card.get_text(" ", strip=True))
             if m:
@@ -439,7 +430,6 @@ def parse_clipboard_site(html: str) -> list:
         if not email or "@" not in email:
             continue
 
-        # ── 密码 ──
         password = ""
         for sel in [".copy-pass-btn", "[id^='password_']", "button.btn-success[data-clipboard-text]"]:
             btn = card.select_one(sel)
@@ -451,47 +441,29 @@ def parse_clipboard_site(html: str) -> list:
         if not password:
             continue
 
-        # ── 状态（跳过异常） ──
         badge = card.select_one(".badge")
-        status_text = badge.get_text(strip=True) if badge else "正常"
-        if bad(status_text):
+        if badge and bad(badge.get_text(strip=True)):
             continue
 
-        # ── 检查时间 ──
         card_text = card.get_text(" ", strip=True)
         mt = re.search(r"上次检查[：:\s]*(20\d{2}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?)", card_text)
         checked_at = mt.group(1) if mt else ""
-
-        # ── 国家 ──
         mc = re.search(COUNTRY_RE, card_text)
-        country = mc.group(1) if mc else ""
-
-        results.append({
-            "email": email,
-            "password": password,
-            "status": "正常",
-            "checked_at": checked_at,
-            "country": country,
-        })
-
+        results.append({"email": email, "password": password, "status": "正常",
+                        "checked_at": checked_at, "country": mc.group(1) if mc else ""})
     return results
 
 
 def fetch_and_parse(url: str, driver=None, selenium_wait: int = 6) -> list:
     """
-    通用抓取+解析：
-    1. 先用 requests 直接拿 HTML，用 parse_clipboard_site 解析（最快最准）
-    2. 若 requests 结果为空或失败，用 Selenium 渲染后再解析
-    3. 若 parse_clipboard_site 仍为空，降级到旧方法
+    通用抓取：requests 优先，失败则 Selenium；
+    优先用 parse_clipboard_site，再降级到旧方法。
     """
-    # ── 方法1：requests 直接请求 ──
-    html_from_requests = ""
     try:
         resp = requests.get(url, headers=HEADERS, timeout=15)
         resp.encoding = "utf-8"
         if resp.status_code == 200:
-            html_from_requests = resp.text
-            results = parse_clipboard_site(html_from_requests)
+            results = parse_clipboard_site(resp.text)
             if results:
                 logger.info(f"    [requests+clipboard] {url} → {len(results)} 条")
                 return results
@@ -501,32 +473,24 @@ def fetch_and_parse(url: str, driver=None, selenium_wait: int = 6) -> list:
     if driver is None:
         return []
 
-    # ── 方法2：Selenium 渲染 ──
     try:
         driver.get(url)
         time.sleep(selenium_wait)
         close_popups(driver)
         scroll(driver, n=8)
         time.sleep(1)
-
-        # 先用 parse_clipboard_site 解析渲染后的 HTML
         results = parse_clipboard_site(driver.page_source)
         if results:
             logger.info(f"    [selenium+clipboard] {url} → {len(results)} 条")
             return results
-
-        # 再试剪贴板拦截法
         results = click_all_copy_btns(driver)
         if results:
             results = enrich_country_time(driver, results)
             logger.info(f"    [selenium+clipboard_hook] {url} → {len(results)} 条")
             return results
-
-        # 最后兜底
         results = js_full_scan(driver) or from_inputs(driver) or generic_parse(driver)
         logger.info(f"    [selenium+fallback] {url} → {len(results)} 条")
         return results
-
     except Exception as ex:
         logger.error(f"    fetch_and_parse selenium 异常 {url}: {ex}")
         return []
@@ -536,7 +500,105 @@ def fetch_and_parse(url: str, driver=None, selenium_wait: int = 6) -> list:
 # ccbaohe.com/appleID
 # ──────────────────────────────────────────
 def crawl_ccbaohe(driver):
-    results = fetch_and_parse("https://ccbaohe.com/appleID", driver, selenium_wait=8)
+    """
+    ccbaohe.com 结构：
+    - 邮箱：<a class="__cf_email__" style="display:none">邮箱明文</a>（未编码，直接读text）
+    - 密码：onclick="copy('密码')"
+    - 国家：<span>【国家】</span>
+    - 时间：<p class="card-text">检测时间：...</p>
+    """
+    def _parse_ccbaohe(html):
+        soup = BeautifulSoup(html, "lxml")
+        results = []
+        for card in soup.select(".card-body"):
+            # 邮箱：__cf_email__ 这里是明文 href="mailto:xxx"，直接读
+            email = ""
+            cf = card.select_one(".__cf_email__")
+            if cf:
+                # 先试 href="mailto:..."
+                href = cf.get("href", "")
+                if href.startswith("mailto:"):
+                    email = href[7:].strip().lower()
+                if not email or "@" not in email:
+                    # 再试 data-cfemail（编码）
+                    encoded = cf.get("data-cfemail", "")
+                    if encoded:
+                        enc = bytes.fromhex(encoded)
+                        key = enc[0]
+                        email = "".join(chr(b ^ key) for b in enc[1:]).lower()
+                if not email or "@" not in email:
+                    # 最后试文本内容（明文显示的情况）
+                    t = cf.get_text(strip=True).lower()
+                    if "@" in t:
+                        email = t
+            if not email or "@" not in email:
+                continue
+
+            # 密码：从复制密码按钮的 onclick 提取 copy('xxx')
+            password = ""
+            for btn in card.select("button"):
+                txt = btn.get_text(strip=True)
+                if "复制密码" in txt or "密码" in txt:
+                    oc = btn.get("onclick", "")
+                    m = re.search(r"copy\(([^)]{4,64})\)", oc)
+                    if not m:
+                        m = re.search(r"copy\(&#39;([^&]{4,64})&#39;", oc)
+                    if m:
+                        password = m.group(1).strip()
+                        # strip surrounding quotes if present
+                        password = password.strip('"').strip("'")
+                        break
+                # 也试 data-clipboard-text
+                pb = card.select_one("[data-clipboard-text]")
+                if pb:
+                    password = pb.get("data-clipboard-text","").strip()
+            if not password or len(password) < 4:
+                continue
+
+            # 状态
+            card_text = card.get_text(" ", strip=True)
+            if re.search(r"(异常|失效|不可用|锁定|disabled)", card_text, re.I):
+                continue
+
+            # 时间
+            mt = re.search(r"检测时间[：:\s]*(20\d{2}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?)", card_text)
+            checked_at = mt.group(1) if mt else ""
+
+            # 国家（从 header 取）
+            header = card.find_previous("div", class_="card-header")
+            country = ""
+            if header:
+                mc = re.search(r"【(" + COUNTRY_RE[1:-1] + r")】", header.get_text())
+                if mc:
+                    country = mc.group(1)
+
+            results.append({"email": email, "password": password,
+                            "status": "正常", "checked_at": checked_at, "country": country})
+        return results
+
+    # 优先 requests
+    results = []
+    try:
+        resp = requests.get("https://ccbaohe.com/appleID/", headers=HEADERS, timeout=15)
+        resp.encoding = "utf-8"
+        if resp.status_code == 200:
+            results = _parse_ccbaohe(resp.text)
+            logger.info(f"    [requests] ccbaohe → {len(results)} 条")
+    except Exception as ex:
+        logger.debug(f"    ccbaohe requests 失败: {ex}")
+
+    # Selenium 兜底
+    if not results:
+        driver.get("https://ccbaohe.com/appleID/")
+        time.sleep(8)
+        close_popups(driver)
+        scroll(driver, n=10)
+        time.sleep(2)
+        results = _parse_ccbaohe(driver.page_source)
+        if not results:
+            results = click_all_copy_btns(driver) or js_full_scan(driver) or generic_parse(driver)
+        logger.info(f"    [selenium] ccbaohe → {len(results)} 条")
+
     logger.info(f"  ccbaohe 抓到: {len(results)}")
     return dedup(results)
 
@@ -545,7 +607,84 @@ def crawl_ccbaohe(driver):
 # tkbaohe.com/Shadowrocket/
 # ──────────────────────────────────────────
 def crawl_tkbaohe(driver):
-    results = fetch_and_parse("https://tkbaohe.com/Shadowrocket/", driver, selenium_wait=8)
+    """tkbaohe.com 结构与 ccbaohe 完全相同，复用同一解析逻辑"""
+    def _parse(html):
+        soup = BeautifulSoup(html, "lxml")
+        results = []
+        for card in soup.select(".card-body"):
+            email = ""
+            cf = card.select_one(".__cf_email__")
+            if cf:
+                href = cf.get("href", "")
+                if href.startswith("mailto:"):
+                    email = href[7:].strip().lower()
+                if not email or "@" not in email:
+                    encoded = cf.get("data-cfemail", "")
+                    if encoded:
+                        try:
+                            enc = bytes.fromhex(encoded)
+                            key = enc[0]
+                            email = "".join(chr(b ^ key) for b in enc[1:]).lower()
+                        except Exception:
+                            pass
+                if not email or "@" not in email:
+                    t = cf.get_text(strip=True).lower()
+                    if "@" in t:
+                        email = t
+            if not email or "@" not in email:
+                continue
+            password = ""
+            for btn in card.select("button"):
+                if "密码" in btn.get_text(strip=True):
+                    oc = btn.get("onclick", "")
+                    m = re.search(r"copy\(([^)]{4,64})\)", oc)
+                    if not m:
+                        m = re.search(r"copy\(&#39;([^&]{4,64})&#39;", oc)
+                    if m:
+                        password = m.group(1).strip('"').strip("'")
+                        break
+
+                pb = card.select_one("[data-clipboard-text]")
+                if pb:
+                    password = pb.get("data-clipboard-text", "").strip()
+            if not password or len(password) < 4:
+                continue
+            card_text = card.get_text(" ", strip=True)
+            if re.search(r"(异常|失效|不可用|锁定)", card_text):
+                continue
+            mt = re.search(r"检测时间[：:\s]*(20\d{2}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?)", card_text)
+            checked_at = mt.group(1) if mt else ""
+            header = card.find_previous("div", class_="card-header")
+            country = ""
+            if header:
+                mc = re.search(COUNTRY_RE, header.get_text())
+                if mc:
+                    country = mc.group(1)
+            results.append({"email": email, "password": password,
+                            "status": "正常", "checked_at": checked_at, "country": country})
+        return results
+
+    results = []
+    try:
+        resp = requests.get("https://tkbaohe.com/Shadowrocket/", headers=HEADERS, timeout=15)
+        resp.encoding = "utf-8"
+        if resp.status_code == 200:
+            results = _parse(resp.text)
+            logger.info(f"    [requests] tkbaohe → {len(results)} 条")
+    except Exception as ex:
+        logger.debug(f"    tkbaohe requests 失败: {ex}")
+
+    if not results:
+        driver.get("https://tkbaohe.com/Shadowrocket/")
+        time.sleep(8)
+        close_popups(driver)
+        scroll(driver, n=10)
+        time.sleep(2)
+        results = _parse(driver.page_source)
+        if not results:
+            results = click_all_copy_btns(driver) or js_full_scan(driver) or generic_parse(driver)
+        logger.info(f"    [selenium] tkbaohe → {len(results)} 条")
+
     logger.info(f"  tkbaohe 抓到: {len(results)}")
     return dedup(results)
 
@@ -554,27 +693,81 @@ def crawl_tkbaohe(driver):
 # idfree.top  （之前抓到0）
 # ──────────────────────────────────────────
 def crawl_idfree_top(driver):
-    urls = ["https://idfree.top/", "https://www.idfree.top/", "https://idfree.top/free"]
-    results = []
-    for url in urls:
-        r = fetch_and_parse(url, driver, selenium_wait=10)
-        if r:
-            results = r
-            break
+    loaded = False
+    for url in ["https://idfree.top/", "https://www.idfree.top/", "https://idfree.top/free"]:
+        try:
+            driver.get(url)
+            WebDriverWait(driver, 12).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+            if "@" in driver.page_source or "apple" in driver.page_source.lower():
+                loaded = True
+                break
+        except Exception:
+            continue
+
+    if not loaded:
+        logger.warning("  idfree.top 页面无有效内容，尝试requests")
+        try:
+            resp = requests.get("https://idfree.top/", headers=HEADERS, timeout=15)
+            results = parse_text(resp.text)
+            if results:
+                logger.info(f"  idfree_top(requests) 抓到: {len(results)}")
+                return dedup(results)
+        except Exception:
+            pass
+        logger.info(f"  idfree_top 抓到: 0")
+        return []
+
+    time.sleep(3)
+    for _ in range(3):
+        close_popups(driver)
+        time.sleep(0.5)
+
+    try:
+        WebDriverWait(driver, 10).until(lambda d: "@" in d.page_source)
+    except Exception:
+        pass
+
+    scroll(driver, n=10)
+    time.sleep(2)
+
+    results = click_all_copy_btns(driver)
+    if not results:
+        results = from_inputs(driver)
+    if not results:
+        results = js_full_scan(driver)
+    if not results:
+        results = generic_parse(driver)
+    if not results:
+        try:
+            resp = requests.get("https://idfree.top/", headers=HEADERS, timeout=15)
+            results = parse_text(resp.text)
+        except Exception:
+            pass
+
     logger.info(f"  idfree_top 抓到: {len(results)}")
     return dedup(results)
+
+
 # ──────────────────────────────────────────
 # id.btvda.top  （最大来源）
 # ──────────────────────────────────────────
 def crawl_id_btvda_top(driver):
-    # btvda 账号最多，多尝试几个路径
-    results = []
-    for url in ["https://id.btvda.top/", "https://id.btvda.top/free", "https://id.btvda.top/share"]:
-        r = fetch_and_parse(url, driver, selenium_wait=8)
-        results.extend(r)
-        if r:
-            break
-    logger.info(f"  id_btvda_top 抓到: {len(dedup(results))}")
+    driver.get("https://id.btvda.top/")
+    time.sleep(6)
+    close_popups(driver)
+    scroll(driver, n=15)
+    time.sleep(2)
+
+    results = click_all_copy_btns(driver)
+    results = enrich_country_time(driver, results)
+    if not results:
+        results = js_full_scan(driver)
+    if not results:
+        results = from_inputs(driver) or generic_parse(driver)
+
+    logger.info(f"  id_btvda_top 抓到: {len(results)}")
     return dedup(results)
 
 
@@ -582,21 +775,99 @@ def crawl_id_btvda_top(driver):
 # idshare001.me  （之前抓到0）
 # ──────────────────────────────────────────
 def crawl_idshare001(driver):
-    # 尝试所有已知路径，优先用 parse_clipboard_site
-    urls = [
+    loaded = False
+    for url in [
         "https://idshare001.me/goso.html",
         "https://idshare001.me/",
         "https://idshare001.me/apple",
         "https://idshare001.me/free",
         "https://idshare001.me/share",
-    ]
-    results = []
-    for url in urls:
-        r = fetch_and_parse(url, driver, selenium_wait=8)
-        if r:
-            results = r
-            logger.info(f"  idshare001 有效URL: {url}")
-            break
+    ]:
+        try:
+            driver.get(url)
+            WebDriverWait(driver, 12).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+            src = driver.page_source
+            if "@" in src and len(src) > 2000:
+                loaded = True
+                logger.info(f"  idshare001 有效URL: {url}")
+                break
+        except Exception:
+            continue
+
+    if not loaded:
+        logger.warning("  idshare001 所有路径均无效，尝试requests")
+        try:
+            resp = requests.get("https://idshare001.me/goso.html", headers=HEADERS, timeout=15)
+            results = parse_text(resp.text)
+            if results:
+                logger.info(f"  idshare001(requests) 抓到: {len(results)}")
+                return dedup(results)
+        except Exception:
+            pass
+        logger.info(f"  idshare001 抓到: 0")
+        return []
+
+    time.sleep(2)
+    for _ in range(3):
+        close_popups(driver)
+        time.sleep(0.5)
+
+    scroll(driver, n=10)
+    time.sleep(2)
+
+    results = click_all_copy_btns(driver)
+
+    if not results:
+        # data-* 属性 + input value 提取
+        try:
+            data = driver.execute_script(r"""
+var out=[], seen={};
+document.querySelectorAll('[data-account],[data-email],[data-password],[data-pwd],[data-id]').forEach(function(el){
+    var em=el.getAttribute('data-account')||el.getAttribute('data-email')||el.getAttribute('data-id')||'';
+    var pw=el.getAttribute('data-password')||el.getAttribute('data-pwd')||'';
+    if(em&&em.includes('@')&&pw&&pw!=='undefined'&&pw.length>=5&&!seen[em.toLowerCase()]){
+        seen[em.toLowerCase()]=1;
+        out.push({email:em,pwd:pw});
+    }
+});
+document.querySelectorAll('input[type=text],input[type=password],input:not([type])').forEach(function(inp){
+    var v=inp.value||inp.getAttribute('value')||'';
+    if(!v||v.length<5) return;
+    var parent=inp.closest('[class]')||inp.parentElement;
+    var txt=parent?(parent.innerText||''):'';
+    var em=txt.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}/i);
+    if(em&&!seen[em[0].toLowerCase()]&&v.indexOf('@')<0){
+        seen[em[0].toLowerCase()]=1;
+        out.push({email:em[0],pwd:v});
+    }
+});
+return out;
+            """)
+            seen = set()
+            for d in (data or []):
+                e = (d.get("email") or "").lower()
+                p = d.get("pwd") or ""
+                if e and p and "@" in e and len(p) >= 5 and e not in seen:
+                    seen.add(e)
+                    results.append({"email": e, "password": p, "status": "正常", "checked_at": "", "country": ""})
+        except Exception as ex:
+            logger.debug(f"  idshare001 data-attr: {ex}")
+
+    if not results:
+        results = from_inputs(driver)
+    if not results:
+        results = js_full_scan(driver)
+    if not results:
+        results = generic_parse(driver)
+    if not results:
+        try:
+            resp = requests.get("https://idshare001.me/goso.html", headers=HEADERS, timeout=15)
+            results = parse_text(resp.text)
+        except Exception:
+            pass
+
     logger.info(f"  idshare001 抓到: {len(results)}")
     return dedup(results)
 
@@ -605,7 +876,40 @@ def crawl_idshare001(driver):
 # id.bocchi2b.top  （之前抓到0）
 # ──────────────────────────────────────────
 def crawl_bocchi2b(driver):
-    results = fetch_and_parse("https://id.bocchi2b.top/", driver, selenium_wait=8)
+    driver.get("https://id.bocchi2b.top/")
+    time.sleep(6)
+
+    # 分多轮关弹窗
+    for _ in range(4):
+        close_popups(driver)
+        time.sleep(0.8)
+
+    # 等账号内容出现
+    try:
+        WebDriverWait(driver, 15).until(
+            lambda d: "@" in d.page_source and len(d.page_source) > 5000
+        )
+    except Exception:
+        pass
+
+    scroll(driver, n=12)
+    time.sleep(2)
+
+    results = click_all_copy_btns(driver)
+    results = enrich_country_time(driver, results)
+    if not results:
+        results = from_inputs(driver)
+    if not results:
+        results = js_full_scan(driver)
+    if not results:
+        results = generic_parse(driver)
+    if not results:
+        try:
+            resp = requests.get("https://id.bocchi2b.top/", headers=HEADERS, timeout=15)
+            results = parse_text(resp.text)
+        except Exception:
+            pass
+
     logger.info(f"  bocchi2b 抓到: {len(results)}")
     return dedup(results)
 
@@ -614,112 +918,306 @@ def crawl_bocchi2b(driver):
 # shadowrocket.best/
 # ──────────────────────────────────────────
 def crawl_shadowrocket_best(driver):
-    results = fetch_and_parse("https://shadowrocket.best/", driver, selenium_wait=8)
-    logger.info(f"  shadowrocket_best 抓到: {len(results)}")
+    driver.get("https://shadowrocket.best/")
+    time.sleep(6)
+    close_popups(driver)
+
+    # 多次滚动加载全部卡片
+    last_count = 0
+    for _ in range(30):
+        driver.execute_script("window.scrollBy(0, 600);")
+        time.sleep(0.7)
+        cards = driver.find_elements(By.CSS_SELECTOR,
+            ".card,.id-card,.account-card,[class*='card'],[class*='item'],[class*='account']")
+        if len(cards) == last_count:
+            break
+        last_count = len(cards)
+    driver.execute_script("window.scrollTo(0,0)")
+    time.sleep(1)
+
+    results = click_all_copy_btns(driver)
+    results = enrich_country_time(driver, results)
+    if not results:
+        results = js_full_scan(driver)
+    if not results:
+        seen = set()
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        for card in soup.find_all(["div", "li"], recursive=True):
+            text = card.get_text(" ", strip=True)
+            if len(text) < 20 or len(text) > 500: continue
+            me = EMAIL_RE.search(text)
+            if not me: continue
+            e = me.group().lower()
+            if e in seen: continue
+            mp = re.search(r"密[码碼][\s:：]*([A-Za-z0-9!@#$%^&*()\-_=+]{5,32})", text)
+            if not mp:
+                after = text[me.end():]
+                mp2 = re.search(r"\b([A-Za-z0-9!@#$%^&*()\-_=+]{6,32})\b", after)
+                if not mp2: continue
+                pwd = mp2.group(1)
+                if re.match(r"^\d{4}-\d{2}-\d{2}$", pwd): continue
+            else:
+                pwd = mp.group(1)
+            mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
+            mc = re.search(COUNTRY_RE, text)
+            seen.add(e)
+            results.append({"email": e, "password": pwd, "status": "正常",
+                             "checked_at": mt.group(1) if mt else "",
+                             "country": mc.group(1) if mc else ""})
+
+    if not results:
+        results = from_inputs(driver)
     return dedup(results)
+
+
+# ──────────────────────────────────────────
+# free.iosapp.icu/
+# ──────────────────────────────────────────
 def crawl_free_iosapp_icu(driver):
-    results = fetch_and_parse("https://free.iosapp.icu/", driver, selenium_wait=6)
+    """
+    free.iosapp.icu 是纯文本格式，无复制按钮：
+      账号: xxx@outlook.com
+      密码: 58du&7SC
+      状态: 账号可用
+      检查时间: 2026-xx-xx xx:xx
+    """
+    def _parse_iosapp(html):
+        soup = BeautifulSoup(html, "lxml")
+        results = []
+        seen = set()
+        text = soup.get_text("\n", strip=True)
+        # 按账号块切割（每个账号都有"账号:"标记）
+        blocks = re.split(r"(?=账号[:：])", text)
+        for block in blocks:
+            me = re.search(r"账号[:：]\s*([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,})", block, re.I)
+            if not me:
+                me = re.search(r"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,})", block, re.I)
+            if not me:
+                continue
+            email = me.group(1).lower()
+            if "@" not in email or email in seen:
+                continue
+            mp = re.search(r"密码[:：]\s*([^\n\s]{4,64})", block)
+            if not mp:
+                continue
+            password = mp.group(1).strip()
+            # 检查状态
+            ms = re.search(r"状态[:：]\s*(.+)", block)
+            status_text = ms.group(1).strip() if ms else ""
+            if re.search(r"(异常|失效|不可用|locked|disabled|unavailable)", status_text, re.I):
+                continue
+            # 时间
+            mt = re.search(r"检查时间[:：]?\s*(20\d{2}-\d{2}-\d{2}[\s T]\d{2}:\d{2}(?::\d{2})?)", block)
+            checked_at = mt.group(1).strip() if mt else ""
+            mc = re.search(COUNTRY_RE, block)
+            seen.add(email)
+            results.append({"email": email, "password": password,
+                            "status": "正常", "checked_at": checked_at,
+                            "country": mc.group(1) if mc else ""})
+        return results
+
+    results = []
+    try:
+        resp = requests.get("https://free.iosapp.icu/", headers=HEADERS, timeout=15)
+        resp.encoding = "utf-8"
+        if resp.status_code == 200:
+            results = _parse_iosapp(resp.text)
+            logger.info(f"    [requests] free.iosapp.icu → {len(results)} 条")
+    except Exception as ex:
+        logger.debug(f"    iosapp requests 失败: {ex}")
+
+    if not results:
+        driver.get("https://free.iosapp.icu/")
+        time.sleep(6)
+        close_popups(driver)
+        scroll(driver, n=10)
+        time.sleep(2)
+        results = _parse_iosapp(driver.page_source)
+        if not results:
+            # 再试剪贴板或js扫描
+            results = click_all_copy_btns(driver) or js_full_scan(driver)
+        logger.info(f"    [selenium] free.iosapp.icu → {len(results)} 条")
+
     logger.info(f"  free_iosapp_icu 抓到: {len(results)}")
     return dedup(results)
+
+
+# ──────────────────────────────────────────
+# app.iosr.cn/tools/apple-shared-id
+# ──────────────────────────────────────────
 def crawl_app_iosr_cn(driver):
-    # app.iosr.cn 有刷新按钮，需要 Selenium 点击后再解析
+    """
+    app.iosr.cn 有专属结构，需要 Selenium（JS动态渲染）。
+    密码通过 JS 直接读取每个账号卡片的所有 data-* 属性和按钮 onclick。
+    """
+    driver.get("https://app.iosr.cn/tools/apple-shared-id")
+    time.sleep(7)
+    close_popups(driver)
     try:
-        driver.get("https://app.iosr.cn/tools/apple-shared-id")
-        time.sleep(7)
-        close_popups(driver)
-        try:
-            driver.find_element(By.XPATH, "//button[contains(.,'刷新')]").click()
-            time.sleep(4)
-        except Exception:
-            pass
-        scroll(driver)
-        results = parse_clipboard_site(driver.page_source)
-        if not results:
-            results = click_all_copy_btns(driver) or js_full_scan(driver) or generic_parse(driver)
-    except Exception as ex:
-        logger.error(f"  app.iosr.cn 异常: {ex}")
-        results = []
+        driver.find_element(By.XPATH, "//button[contains(.,'刷新') or contains(.,'refresh')]").click()
+        time.sleep(4)
+    except Exception:
+        pass
+    scroll(driver, n=10)
+    time.sleep(2)
+
+    # 用 JS 直接扫描页面所有含邮箱的元素块，提取账号+密码
+    data = driver.execute_script(r"""
+var results = [];
+var seen = {};
+var EMAIL_P = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}/i;
+// 找所有含邮箱的卡片容器
+var cards = document.querySelectorAll('.card,.item,.account-item,[class*="account"],[class*="id-item"]');
+if(cards.length === 0) cards = document.querySelectorAll('[class]');
+cards.forEach(function(card) {
+    var text = card.innerText || '';
+    var emailMatch = text.match(EMAIL_P);
+    if(!emailMatch) return;
+    var email = emailMatch[0].toLowerCase();
+    if(seen[email]) return;
+    // 密码策略1: data-clipboard-text
+    var pwd = '';
+    var clipBtns = card.querySelectorAll('[data-clipboard-text]');
+    clipBtns.forEach(function(btn) {
+        var v = btn.getAttribute('data-clipboard-text') || '';
+        if(v && v.indexOf('@') < 0 && v.length >= 4 && v.length <= 64) pwd = v;
+    });
+    // 密码策略2: onclick copy('xxx')
+    if(!pwd) {
+        var btns = card.querySelectorAll('button,a');
+        btns.forEach(function(btn) {
+            var oc = btn.getAttribute('onclick') || '';
+            var m = oc.match(/copy\(['"]([^'"]{4,32})['"]\)/);
+            if(m && m[1].indexOf('@') < 0) pwd = m[1];
+        });
+    }
+    // 密码策略3: input value
+    if(!pwd) {
+        var inputs = card.querySelectorAll('input[type="text"],input[type="password"],input:not([type])');
+        inputs.forEach(function(inp) {
+            var v = inp.value || inp.getAttribute('value') || '';
+            if(v && v.indexOf('@') < 0 && v.length >= 4) pwd = v;
+        });
+    }
+    if(!pwd || pwd.length < 4) return;
+    // 检查状态（含"异常"等词则跳过）
+    if(/异常|失效|不可用|锁定/.test(text)) return;
+    // 时间
+    var tm = text.match(/(20\d{2}-\d{2}-\d{2}[\s T]\d{2}:\d{2}(?::\d{2})?)/);
+    seen[email] = 1;
+    results.push({email: email, pwd: pwd, time: tm ? tm[1].trim() : ''});
+});
+return results;
+    """)
+    results = []
+    seen = set()
+    for d in (data or []):
+        e = (d.get("email") or "").lower().strip()
+        p = (d.get("pwd") or "").strip()
+        if e and p and "@" in e and len(p) >= 4 and e not in seen:
+            seen.add(e)
+            mc = re.search(COUNTRY_RE, e + (d.get("time") or ""))
+            results.append({"email": e, "password": p, "status": "正常",
+                            "checked_at": (d.get("time") or "").strip(),
+                            "country": mc.group(1) if mc else ""})
+
+    # 如果 JS 扫不到，降级
+    if not results:
+        results = parse_clipboard_site(driver.page_source) or click_all_copy_btns(driver) or js_full_scan(driver)
+
     logger.info(f"  app.iosr.cn 抓到: {len(results)}")
     return dedup(results)
-# ══════════════════════════════════════════════════════════════════
-# 139.196.183.52 系列 + 同类 clipboard 框架站点
-# ══════════════════════════════════════════════════════════════════
 
-IP_SHARE_URLS = [
-    "http://139.196.183.52/share/DZhBvnglEU",
-    # 爬虫会自动从首页发现更多 /share/ 链接
-]
 
-def crawl_ip_share(driver) -> list:
-    """
-    抓取 139.196.183.52 账号分享站（及自动发现的同域新页面）。
-    优先 requests + parse_clipboard_site，失败才用 Selenium。
-    """
-    all_results = []
-    discovered_urls = set(IP_SHARE_URLS)
+# ──────────────────────────────────────────
+# 139.196.183.52/share/DZhBvnglEU
+# ──────────────────────────────────────────
+def crawl_ip_share(driver):
+    driver.get("http://139.196.183.52/share/DZhBvnglEU")
+    time.sleep(6)
+    close_popups(driver)
+    scroll(driver)
 
-    # ── 步骤1：requests 快速抓取已知 URL ──
-    for url in list(discovered_urls):
+    # 点显示密码按钮
+    try:
+        btns = driver.find_elements(By.XPATH,
+            "//button[contains(.,'复制密码')]|//button[contains(.,'查看密码')]|//button[contains(.,'显示密码')]")
+        for btn in btns[:20]:
+            try:
+                driver.execute_script("arguments[0].click();", btn)
+                time.sleep(0.4)
+            except Exception:
+                pass
+        time.sleep(1)
+    except Exception:
+        pass
+
+    results = click_all_copy_btns(driver)
+
+    if not results:
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=15)
-            resp.encoding = "utf-8"
-            if resp.status_code == 200:
-                results = parse_clipboard_site(resp.text)
-                logger.info(f"  [requests] {url} → {len(results)} 条")
-                if results:
-                    all_results.extend(results)
-                    continue
+            data = driver.execute_script(r"""
+var out=[], seen={};
+document.querySelectorAll('[class]').forEach(function(card){
+    var t=card.innerText||card.textContent||'';
+    var em=t.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}/i);
+    if(!em) return;
+    var e=em[0].toLowerCase();
+    if(seen[e]) return;
+    var inp=card.querySelector('input');
+    var pwd=inp?(inp.value||''):'';
+    if(!pwd||pwd.length<5){
+        var spans=card.querySelectorAll('span,p,div,td');
+        for(var i=0;i<spans.length;i++){
+            var sv=spans[i].innerText||'';
+            if(sv&&sv.length>=5&&sv.length<=32&&!sv.includes('@')&&!/^20\d{2}/.test(sv)){
+                pwd=sv.trim(); break;
+            }
+        }
+    }
+    var mt=t.match(/上次检查[:：\s]*(20\d{2}-\d{2}-\d{2} \d{2}:\d{2})/);
+    var ms=t.match(/(正常|解锁成功|可用)/);
+    if(pwd&&pwd.length>=5&&ms){
+        seen[e]=1;
+        out.push({email:e,pwd:pwd,time:mt?mt[1]:''});
+    }
+});
+return out;
+            """)
+            seen = set()
+            for d in (data or []):
+                e = (d.get("email") or "").lower()
+                p = (d.get("pwd") or "").strip()
+                if e and p and "@" in e and len(p) >= 5 and e not in seen:
+                    seen.add(e)
+                    results.append({"email": e, "password": p, "status": "正常",
+                                    "checked_at": d.get("time", ""), "country": ""})
         except Exception as ex:
-            logger.warning(f"  [requests] {url} 失败: {ex}")
-        # Selenium 兜底
-        try:
-            r = fetch_and_parse(url, driver, selenium_wait=6)
-            all_results.extend(r)
-        except Exception as ex:
-            logger.error(f"  [selenium] {url} 异常: {ex}")
+            logger.warning(f"  ip_share JS: {ex}")
 
-    # ── 步骤2：自动发现首页上的其他分享链接 ──
-    for idx_url in ["http://139.196.183.52/", "http://139.196.183.52/share"]:
-        try:
-            resp = requests.get(idx_url, headers=HEADERS, timeout=10)
-            if resp.status_code != 200:
-                continue
-            soup = BeautifulSoup(resp.text, "lxml")
-            for a in soup.find_all("a", href=True):
-                href = a["href"]
-                if "/share/" in href:
-                    full = href if href.startswith("http") else f"http://139.196.183.52{href}"
-                    if full not in discovered_urls:
-                        discovered_urls.add(full)
-                        logger.info(f"  [发现新页面] {full}")
-                        try:
-                            r2 = requests.get(full, headers=HEADERS, timeout=15)
-                            r2.encoding = "utf-8"
-                            if r2.status_code == 200:
-                                new_results = parse_clipboard_site(r2.text)
-                                logger.info(f"    → {len(new_results)} 条")
-                                all_results.extend(new_results)
-                        except Exception as ex2:
-                            logger.warning(f"    新页面失败: {ex2}")
-        except Exception:
-            pass
-
-    return dedup(all_results)
+    if not results:
+        results = js_full_scan(driver)
+    if not results:
+        results = from_inputs(driver) or generic_parse(driver)
+    return dedup(results)
 
 
 SITES = [
-    {"name": "ccbaohe.com/appleID",  "fn": crawl_ccbaohe},
-    {"name": "shadowrocket.best",    "fn": crawl_shadowrocket_best},
-    {"name": "free.iosapp.icu",      "fn": crawl_free_iosapp_icu},
-    {"name": "idfree.top",           "fn": crawl_idfree_top},
-    {"name": "id.btvda.top",         "fn": crawl_id_btvda_top},
+    # 按用户指定顺序排列
     {"name": "idshare001.me",        "fn": crawl_idshare001},
-    {"name": "app.iosr.cn",          "fn": crawl_app_iosr_cn},
-    {"name": "id.bocchi2b.top",      "fn": crawl_bocchi2b},
+    {"name": "idfree.top",           "fn": crawl_idfree_top},
     {"name": "139.196.183.52",       "fn": crawl_ip_share},
+    {"name": "free.iosapp.icu",      "fn": crawl_free_iosapp_icu},
+    {"name": "app.iosr.cn",          "fn": crawl_app_iosr_cn},
+    {"name": "shadowrocket.best",    "fn": crawl_shadowrocket_best},
+    {"name": "ccbaohe.com/appleID",  "fn": crawl_ccbaohe},
     {"name": "tkbaohe.com",          "fn": crawl_tkbaohe},
+    {"name": "id.btvda.top",         "fn": crawl_id_btvda_top},
+    {"name": "id.bocchi2b.top",      "fn": crawl_bocchi2b},
 ]
 
+# 站点排序权重（顺序越靠前权重越小，用于排序）
+SITE_ORDER = {s["name"]: i for i, s in enumerate(SITES)}
 
 def crawl_all():
     seen, source_stats = {}, {}
@@ -758,9 +1256,12 @@ def crawl_all():
         driver.quit()
         logger.info("浏览器已关闭")
 
-    accounts = sorted(seen.values(),
-                      key=lambda a: a.get("checked_at", "") or a.get("updated_at", ""),
-                      reverse=True)
+    # 排序：先按站点顺序（用户指定），同站点内按检查时间倒序
+    def sort_key(a):
+        site_rank = SITE_ORDER.get(a.get("source", ""), 999)
+        t = a.get("checked_at", "") or a.get("updated_at", "") or ""
+        return (site_rank, t)
+    accounts = sorted(seen.values(), key=sort_key)
     return {
         "generated_at": datetime.now(CST).strftime("%Y-%m-%d %H:%M"),
         "total":         len(accounts),

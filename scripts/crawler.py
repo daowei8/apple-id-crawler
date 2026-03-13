@@ -8,7 +8,13 @@ Apple ID 共享账号爬虫 v3
 """
 
 import re, json, time, hashlib, logging, os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+
+# 中国标准时间 UTC+8
+CST = timezone(timedelta(hours=8))
+
+def now_cst() -> str:
+    return datetime.now(CST).strftime("%Y-%m-%d %H:%M")
 
 import requests
 from bs4 import BeautifulSoup
@@ -67,6 +73,27 @@ def dedup(lst: list) -> list:
             seen.add(e); out.append(r)
     return out
 
+def is_bad_password(p: str) -> bool:
+    """过滤掉明显不是密码的字符串"""
+    if not p or len(p) < 5:
+        return True
+    # 完整日期格式
+    if re.match(r'^20\d\d[-/]\d\d[-/]\d\d$', p):
+        return True
+    # 日期片段如 03-13, 12-31
+    if re.match(r'^\d{2}-\d{2}$', p):
+        return True
+    # 8位纯数字年月日
+    if re.match(r'^20\d{6}$', p):
+        return True
+    # 常见弱密码
+    if p.lower() in {"password","12345678","123456","abcdefgh","qwerty123","88888888","00000000"}:
+        return True
+    # 全部相同字符
+    if len(set(p)) < 2:
+        return True
+    return False
+
 def parse_text(text: str) -> list:
     """通用文本解析：内联对 + 上下文关联"""
     results, seen = [], set()
@@ -81,7 +108,7 @@ def parse_text(text: str) -> list:
 
     for m in INLINE.finditer(text):
         e, p = m.group(1).lower(), m.group(2)
-        if (e, p) not in seen and len(p) >= 5 and e not in p:
+        if (e, p) not in seen and not is_bad_password(p) and e not in p:
             seen.add((e, p))
             results.append({"email": e, "password": p, "status": "正常", "checked_at": ""})
 
@@ -94,10 +121,11 @@ def parse_text(text: str) -> list:
         mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", ctx)
         if m:
             for e in emails:
-                k = (e.lower(), m.group(1).strip())
-                if k not in seen and len(k[1]) >= 5:
+                pwd = m.group(1).strip()
+                k = (e.lower(), pwd)
+                if k not in seen and not is_bad_password(pwd):
                     seen.add(k)
-                    results.append({"email": k[0], "password": k[1],
+                    results.append({"email": k[0], "password": pwd,
                                     "status": "正常", "checked_at": mt.group(1) if mt else ""})
     return results
 
@@ -506,21 +534,13 @@ def crawl_all() -> dict:
                 pairs = []
 
             new_count = 0
-            now_iso = datetime.now(timezone.utc).isoformat()
+            now_iso = now_cst()
             for p in pairs:
                 email = p.get("email","").strip().lower()
                 pwd   = p.get("password","").strip()
                 if not email or not pwd or "@" not in email or len(pwd) < 4:
                     continue
-                if len(set(pwd)) < 2:
-                    continue
-                if pwd.lower() in {"password","12345678","123456","abcdefgh","qwerty123"}:
-                    continue
-                # 过滤日期格式密码，如 2026-03-13
-                if re.match(r'^20\d\d[-/]\d\d[-/]\d\d$', pwd):
-                    continue
-                # 过滤纯数字且长度<=6或恰好8位全数字（常见日期误匹配）
-                if re.match(r'^20\d{6}$', pwd):
+                if is_bad_password(pwd):
                     continue
                 if email not in seen:
                     seen[email] = {
@@ -547,7 +567,7 @@ def crawl_all() -> dict:
 
     accounts = sorted(seen.values(), key=sort_key, reverse=True)
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": now_cst(),
         "total":         len(accounts),
         "source_stats":  source_stats,
         "accounts":      accounts,

@@ -216,7 +216,7 @@ def click_all_copy_btns(driver, max_clicks=200):
         p = pwds[i] if i < len(pwds) else ""
         if e and p and e not in seen and len(p) >= 5:
             seen.add(e)
-            results.append({"email": e, "password": p, "status": "正常", "checked_at": "", "country": "美国"})
+            results.append({"email": e, "password": p, "status": "正常", "checked_at": ""})
         i += 1
     
     # 方式2：如果配对失败，从__copied里按顺序重新配对
@@ -230,7 +230,7 @@ def click_all_copy_btns(driver, max_clicks=200):
                 if e not in seen:
                     seen.add(e)
                     results.append({"email": e, "password": b, "status": "正常",
-                                     "checked_at": "", "country": "美国"})
+                                     "checked_at": ""})
                 i += 2
             else:
                 i += 1
@@ -371,7 +371,7 @@ def crawl_idshare001(driver):
                 e=(d.get("email") or "").lower(); p=d.get("pwd") or ""
                 if e and p and "@" in e and len(p)>=5 and e not in seen:
                     seen.add(e)
-                    results.append({"email":e,"password":p,"status":"正常","checked_at":"","country":"美国"})
+                    results.append({"email":e,"password":p,"status":"正常","checked_at":"","country":""})
         except Exception: pass
     
     if not results:
@@ -469,7 +469,7 @@ def crawl_shadowrocket_best(driver):
         if not mt: mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
         seen.add(e)
         results.append({"email": e, "password": pwd, "status": "正常",
-                        "checked_at": mt.group(1) if mt else "", "country": "美国"})
+                        "checked_at": mt.group(1) if mt else "", "country": ""})
     
     if not results:
         results = from_inputs(driver)
@@ -510,7 +510,7 @@ def crawl_free_iosapp_icu(driver):
         mt = re.search(r"检查时间[:：\s]*(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
         seen.add(e)
         results.append({"email": e, "password": pwd, "status": "正常",
-                        "checked_at": mt.group(1) if mt else "", "country": "美国"})
+                        "checked_at": mt.group(1) if mt else "", "country": ""})
     
     if not results:
         results = from_inputs(driver)
@@ -634,7 +634,7 @@ def crawl_ip_share(driver):
             if e and p and "@" in e and len(p) >= 5 and e not in seen:
                 seen.add(e)
                 results.append({"email": e, "password": p, "status": "正常",
-                                 "checked_at": d.get("time", ""), "country": "美国"})
+                                 "checked_at": d.get("time", ""), "country": ""})
     except Exception as ex:
         logger.warning(f"  ip_share JS: {ex}")
     
@@ -681,7 +681,7 @@ def crawl_all():
                 if e not in seen:
                     seen[e] = {"id":uid(e),"email":e,"password":pw,
                                "status":p.get("status","正常"),
-                               "country":p.get("country","美国"),
+                               "country":p.get("country",""),
                                "checked_at":p.get("checked_at",""),
                                "source":site["name"],
                                "updated_at":now_cst()}

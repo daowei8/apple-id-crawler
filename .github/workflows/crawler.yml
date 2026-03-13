@@ -63,5 +63,10 @@ jobs:
           else
             COUNT=$(python -c "import json; print(json.load(open('apple_ids.json'))['total'])")
             git commit -m "🤖 自动更新: ${COUNT} 个账号 [$(date -u '+%Y-%m-%d %H:%M UTC')]"
-            git push
+            # 重试最多5次，每次先 pull --rebase 再 push，解决并发冲突
+            for i in 1 2 3 4 5; do
+              git pull --rebase origin main && git push && break
+              echo "第 ${i} 次 push 失败，等待后重试..."
+              sleep $((i * 5))
+            done
           fi

@@ -1227,6 +1227,10 @@ def crawl_all():
                 pw = p.get("password", "").strip()
                 if not e or not pw or "@" not in e:
                     continue
+                # 过滤遮蔽邮箱：@前面的本地部分至少4个字符（d@4so8nn 这种只有1个字母的是遮蔽版）
+                local_part = e.split("@")[0]
+                if len(local_part) < 4:
+                    continue
                 if len(pw) < 4 or len(pw) > 64:
                     continue
                 if len(set(pw)) < 2:

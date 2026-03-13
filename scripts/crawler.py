@@ -160,64 +160,262 @@ def generic_parse(driver):
     return dedup(results)
 
 
-# ──────────────────────────────────────────
-# ccbaohe.com/appleID
-# ──────────────────────────────────────────
+# ── 通用：注入hook拦截复制事件，然后批量点复制按钮 ──────────────
+HOOK_JS = """
+window.__copied = window.__copied || [];
+var _orig = navigator.clipboard.writeText.bind(navigator.clipboard);
+navigator.clipboard.writeText = function(text){
+    window.__copied.push(text);
+    return _orig(text);
+};
+document.addEventListener('copy', function(e){
+    try{
+        var t = e.clipboardData && e.clipboardData.getData('text');
+        if(t) window.__copied.push(t);
+    }catch(ex){}
+});
+"""
+
+def click_all_copy_btns(driver, max_clicks=200):
+    """注入hook后批量点所有复制按钮，收集账号+密码"""
+    driver.execute_script(HOOK_JS)
+    time.sleep(0.5)
+    
+    # 点所有复制账号/复制密码按钮
+    btns = driver.find_elements(By.XPATH,
+        "//button[contains(.,'复制账号') or contains(.,'复制帐号') or contains(.,'复制号') or contains(.,'账号')]"
+        " | //button[contains(.,'复制密码') or contains(.,'密码')]"
+        " | //a[contains(.,'复制账号')] | //a[contains(.,'复制密码')]"
+    )
+    
+    emails, pwds = [], []
+    for btn in btns[:max_clicks]:
+        try:
+            before = len(driver.execute_script("return window.__copied||[]"))
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+            driver.execute_script("arguments[0].click();", btn)
+            time.sleep(0.15)
+            after = driver.execute_script("return window.__copied||[]")
+            if len(after) > before:
+                val = after[-1].strip()
+                if "@" in val:
+                    emails.append(val.lower())
+                elif len(val) >= 5:
+                    pwds.append(val)
+        except Exception:
+            pass
+    
+    # 配对：emails和pwds交替出现（先账号后密码）
+    results = []
+    seen = set()
+    # 方式1：两两配对
+    i = 0
+    while i < len(emails):
+        e = emails[i]
+        # 找对应密码：pwds里和emails等长或按顺序
+        p = pwds[i] if i < len(pwds) else ""
+        if e and p and e not in seen and len(p) >= 5:
+            seen.add(e)
+            results.append({"email": e, "password": p, "status": "正常", "checked_at": "", "country": "美国"})
+        i += 1
+    
+    # 方式2：如果配对失败，从__copied里按顺序重新配对
+    if not results:
+        copied = driver.execute_script("return window.__copied||[]")
+        i = 0
+        while i < len(copied) - 1:
+            a, b = copied[i].strip(), copied[i+1].strip()
+            if "@" in a and len(b) >= 5 and "@" not in b:
+                e = a.lower()
+                if e not in seen:
+                    seen.add(e)
+                    results.append({"email": e, "password": b, "status": "正常",
+                                     "checked_at": "", "country": "美国"})
+                i += 2
+            else:
+                i += 1
+    
+    return results
+
+
 def crawl_ccbaohe(driver):
     driver.get("https://ccbaohe.com/appleID")
-    time.sleep(8)  # 等充分加载
+    time.sleep(8)
     scroll(driver)
     time.sleep(2)
-
-    results = []
-    try:
-        data = driver.execute_script("""
-            var out = [];
-            // ccbaohe每张卡片结构：账号在某个元素里，密码在input里
-            var cards = document.querySelectorAll('.id-item,.account-item,.card,table tr,[class*="account"],[class*="card"]');
-            if(cards.length === 0){
-                // 备选：找所有含@的文本节点
-                cards = document.querySelectorAll('div,li,tr');
-            }
-            cards.forEach(function(card){
-                var t = card.innerText || '';
-                if(t.length < 10) return;
-                var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
-                if(!em) return;
-                // 找密码input
-                var inp = card.querySelector('input');
-                var pwd = inp ? (inp.value||inp.getAttribute('value')||'') : '';
-                // 找密码文本
-                if(!pwd || pwd.length<5){
-                    var pw = t.match(/密码[\\s:：]*([A-Za-z0-9!@#$%^&*()\\-_=+.]{5,32})/);
-                    if(pw) pwd = pw[1];
-                }
-                if(!pwd || pwd.length<5) return;
-                var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                var mc = t.match(/美国|英国|日本|香港|台湾|韩国|越南|澳大利亚|新加坡|中国/);
-                out.push({email:em[0], pwd:pwd,
-                          time:mt?mt[0]:'', country:mc?mc[0]:'美国'});
-            });
-            return out;
-        """)
-        seen = set()
-        for d in (data or []):
-            e = (d.get("email") or "").lower()
-            p = (d.get("pwd") or "").strip()
-            if e and p and "@" in e and len(p)>=5 and e not in seen:
-                seen.add(e)
-                results.append({"email":e,"password":p,"status":"正常",
-                                 "checked_at":d.get("time",""),
-                                 "country":d.get("country","美国")})
-    except Exception as ex:
-        logger.warning(f"  ccbaohe JS: {ex}")
-
+    
+    results = click_all_copy_btns(driver)
+    
+    # 同时用文本解析补充国家信息
+    if results:
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        country_map = {}
+        for card in soup.find_all(["div","li","tr"], class_=True):
+            text = card.get_text(" ", strip=True)
+            me = EMAIL_RE.search(text)
+            if not me: continue
+            mc = re.search(r"(美国|英国|日本|香港|台湾|韩国|越南|澳大利亚|新加坡|中国大陆)", text)
+            if mc: country_map[me.group().lower()] = mc.group(1)
+        for r in results:
+            r["country"] = country_map.get(r["email"], "美国")
+    
     if not results:
-        results = from_inputs(driver)
-    if not results:
+        # 降级：直接解析页面文本
+        soup = BeautifulSoup(driver.page_source, "html.parser")
         results = generic_parse(driver)
+    
     logger.info(f"  ccbaohe 抓到: {len(results)}")
     return dedup(results)
+
+
+def crawl_tkbaohe(driver):
+    driver.get("https://tkbaohe.com/Shadowrocket/")
+    time.sleep(8)
+    scroll(driver)
+    time.sleep(2)
+    
+    results = click_all_copy_btns(driver)
+    
+    if results:
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        country_map = {}
+        for card in soup.find_all(["div","li","tr"], class_=True):
+            text = card.get_text(" ", strip=True)
+            me = EMAIL_RE.search(text)
+            if not me: continue
+            mc = re.search(r"(美国|英国|日本|香港|台湾|韩国|越南|澳大利亚|新加坡|中国大陆)", text)
+            mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
+            if me.group().lower() in [r["email"] for r in results]:
+                country_map[me.group().lower()] = (mc.group(1) if mc else "美国", mt.group(1) if mt else "")
+        for r in results:
+            info = country_map.get(r["email"], ("美国", ""))
+            r["country"] = info[0]
+            r["checked_at"] = info[1]
+    
+    if not results:
+        results = generic_parse(driver)
+    
+    logger.info(f"  tkbaohe 抓到: {len(results)}")
+    return dedup(results)
+
+
+def crawl_idfree_top(driver):
+    driver.get("https://idfree.top/")
+    time.sleep(5)
+    for sel in ["//button[contains(.,'我已阅读')]","//button[contains(.,'继续查看')]",
+                "//button[contains(.,'查看账号')]","//button[contains(.,'知道了')]"]:
+        try:
+            btn = WebDriverWait(driver,4).until(EC.element_to_be_clickable((By.XPATH,sel)))
+            driver.execute_script("arguments[0].click();",btn); time.sleep(3); break
+        except Exception: pass
+    scroll(driver)
+    
+    results = click_all_copy_btns(driver)
+    if not results:
+        results = from_inputs(driver)
+    
+    logger.info(f"  idfree_top 抓到: {len(results)}")
+    return dedup(results)
+
+
+def crawl_id_btvda_top(driver):
+    driver.get("https://id.btvda.top/")
+    time.sleep(6)
+    scroll(driver)
+    time.sleep(2)
+    
+    results = click_all_copy_btns(driver)
+    
+    if results:
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        country_map = {}
+        for card in soup.find_all(["div","li"], class_=True):
+            text = card.get_text(" ", strip=True)
+            me = EMAIL_RE.search(text)
+            if not me: continue
+            mc = re.search(r"(美国|英国|日本|香港|台湾|韩国|越南|澳大利亚)", text)
+            mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
+            country_map[me.group().lower()] = (mc.group(1) if mc else "美国", mt.group(1) if mt else "")
+        for r in results:
+            info = country_map.get(r["email"], ("美国",""))
+            r["country"] = info[0]; r["checked_at"] = info[1]
+    
+    if not results:
+        results = from_inputs(driver) or generic_parse(driver)
+    
+    logger.info(f"  id_btvda_top 抓到: {len(results)}")
+    return dedup(results)
+
+
+def crawl_idshare001(driver):
+    driver.get("https://idshare001.me/goso.html")
+    time.sleep(6)
+    
+    results = click_all_copy_btns(driver)
+    
+    if not results:
+        # 备用：data属性
+        try:
+            data = driver.execute_script("""
+                var out=[];
+                document.querySelectorAll('[data-account],[data-email],[data-password],[data-pwd]').forEach(function(el){
+                    var em=el.getAttribute('data-account')||el.getAttribute('data-email')||'';
+                    var pw=el.getAttribute('data-password')||el.getAttribute('data-pwd')||'';
+                    if(em&&em.includes('@')&&pw&&pw!=='undefined'&&pw.length>=5)
+                        out.push({email:em,pwd:pw});
+                });
+                return out;
+            """)
+            seen = set()
+            for d in (data or []):
+                e=(d.get("email") or "").lower(); p=d.get("pwd") or ""
+                if e and p and "@" in e and len(p)>=5 and e not in seen:
+                    seen.add(e)
+                    results.append({"email":e,"password":p,"status":"正常","checked_at":"","country":"美国"})
+        except Exception: pass
+    
+    if not results:
+        results = from_inputs(driver) or generic_parse(driver)
+    
+    logger.info(f"  idshare001 抓到: {len(results)}")
+    return dedup(results)
+
+
+def crawl_bocchi2b(driver):
+    driver.get("https://id.bocchi2b.top/")
+    time.sleep(4)
+    for sel in ["//button[text()='Ok']","//button[text()='OK']","//button[text()='确定']",
+                "//div[contains(@class,'modal')]//button"]:
+        try:
+            btn = WebDriverWait(driver,4).until(EC.element_to_be_clickable((By.XPATH,sel)))
+            driver.execute_script("arguments[0].click();",btn); time.sleep(1); break
+        except Exception: pass
+    scroll(driver)
+    time.sleep(2)
+    
+    results = click_all_copy_btns(driver)
+    
+    if results:
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        country_map = {}
+        for card in soup.find_all(["div","li"], class_=True):
+            text = card.get_text(" ", strip=True)
+            me = EMAIL_RE.search(text)
+            if not me: continue
+            mc = re.search(r"(香港|日本|美国|英国|台湾|韩国|越南|蒙古|未知)", text)
+            mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
+            country_map[me.group().lower()] = (mc.group(1) if mc else "美国", mt.group(1) if mt else "")
+        for r in results:
+            info = country_map.get(r["email"], ("美国",""))
+            r["country"] = info[0]; r["checked_at"] = info[1]
+    
+    if not results:
+        results = from_inputs(driver) or generic_parse(driver)
+    
+    logger.info(f"  bocchi2b 抓到: {len(results)}")
+    return dedup(results)
+
+
 
 
  
@@ -318,196 +516,6 @@ def crawl_free_iosapp_icu(driver):
         results = from_inputs(driver)
     return dedup(results)
     
-# ──────────────────────────────────────────
-# idfree.top/
-# ──────────────────────────────────────────
-def crawl_idfree_top(driver):
-    driver.get("https://idfree.top/")
-    time.sleep(5)
-    for sel in ["//button[contains(.,'我已阅读')]","//button[contains(.,'继续查看')]",
-                "//button[contains(.,'查看账号')]","//button[contains(.,'知道了')]",
-                "//a[contains(.,'继续')]"]:
-        try:
-            btn = WebDriverWait(driver,4).until(EC.element_to_be_clickable((By.XPATH,sel)))
-            driver.execute_script("arguments[0].click();",btn); time.sleep(3); break
-        except Exception: pass
-    scroll(driver)
-
-    results = []
-    try:
-        data = driver.execute_script("""
-            var out = [];
-            document.querySelectorAll('input').forEach(function(inp){
-                var v = inp.value || '';
-                if(!v || v.length<5 || v.includes('@')) return;
-                var p = inp.parentElement;
-                for(var i=0;i<8;i++){
-                    if(!p) break;
-                    var t = p.innerText||'';
-                    var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
-                    if(em){
-                        var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                        var mc = t.match(/美国|英国|日本|香港|台湾|韩国|越南/);
-                        var ms = t.match(/(正常|可用)/);
-                        out.push({email:em[0],pwd:v,
-                                  time:mt?mt[0]:'',
-                                  country:mc?mc[0]:'美国',
-                                  status:ms?ms[0]:'正常'});
-                        break;
-                    }
-                    p = p.parentElement;
-                }
-            });
-            return out;
-        """)
-        seen = set()
-        for d in (data or []):
-            e = (d.get("email") or "").lower()
-            p = (d.get("pwd") or "").strip()
-            if e and p and "@" in e and len(p)>=5 and e not in seen:
-                seen.add(e)
-                results.append({"email":e,"password":p,"status":"正常",
-                                 "checked_at":d.get("time",""),
-                                 "country":d.get("country","美国")})
-    except Exception as ex:
-        logger.warning(f"  idfree_top JS: {ex}")
-
-    if not results:
-        results = from_inputs(driver)
-    logger.info(f"  idfree_top 抓到: {len(results)}")
-    return dedup(results)
-
-
-# ──────────────────────────────────────────
-# id.btvda.top/
-# ──────────────────────────────────────────
-def crawl_id_btvda_top(driver):
-    driver.get("https://id.btvda.top/")
-    time.sleep(6)
-    scroll(driver)
-    time.sleep(2)
-
-    results = []
-    try:
-        data = driver.execute_script("""
-            var out = [];
-            document.querySelectorAll('input').forEach(function(inp){
-                var v = inp.value || inp.getAttribute('value') || '';
-                if(!v || v.length<5 || v.includes('@')) return;
-                var p = inp.parentElement;
-                for(var i=0;i<8;i++){
-                    if(!p) break;
-                    var t = p.innerText||'';
-                    var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
-                    if(em){
-                        var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                        var mc = t.match(/美国|英国|日本|香港|台湾|韩国|越南|澳大利亚/);
-                        out.push({email:em[0],pwd:v,
-                                  time:mt?mt[0]:'',
-                                  country:mc?mc[0]:'美国'});
-                        break;
-                    }
-                    p = p.parentElement;
-                }
-            });
-            return out;
-        """)
-        seen = set()
-        for d in (data or []):
-            e = (d.get("email") or "").lower()
-            p = (d.get("pwd") or "").strip()
-            if e and p and "@" in e and len(p)>=5 and e not in seen:
-                seen.add(e)
-                results.append({"email":e,"password":p,"status":"正常",
-                                 "checked_at":d.get("time",""),
-                                 "country":d.get("country","美国")})
-    except Exception as ex:
-        logger.warning(f"  id_btvda_top JS: {ex}")
-
-    if not results:
-        results = from_inputs(driver)
-    if not results:
-        results = generic_parse(driver)
-    logger.info(f"  id_btvda_top 抓到: {len(results)}")
-    return dedup(results)
-    
-
-# ──────────────────────────────────────────
-# idshare001.me/goso.html
-# ──────────────────────────────────────────
-def crawl_idshare001(driver):
-    driver.get("https://idshare001.me/goso.html")
-    time.sleep(6)
-
-    results = []
-    for attempt in range(3):
-        try:
-            # 点所有复制密码按钮，让密码显示出来
-            driver.execute_script("""
-                document.querySelectorAll('button').forEach(function(b){
-                    if(b.innerText && (b.innerText.includes('复制密码') || b.innerText.includes('密码'))){
-                        try{b.click();}catch(e){}
-                    }
-                });
-            """)
-            time.sleep(1)
-
-            data = driver.execute_script("""
-                var out = [];
-                document.querySelectorAll('[class]').forEach(function(card){
-                    var t = card.innerText || '';
-                    if(t.length<15 || t.length>1000) return;
-                    var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
-                    if(!em) return;
-                    // data属性里的密码
-                    var allEls = card.querySelectorAll('[data-password],[data-pwd],[data-pass]');
-                    var pwd = '';
-                    allEls.forEach(function(el){
-                        var v = el.getAttribute('data-password')||el.getAttribute('data-pwd')||el.getAttribute('data-pass')||'';
-                        if(v && v!=='undefined' && v.length>=5) pwd = v;
-                    });
-                    // input里的密码
-                    if(!pwd){
-                        var inp = card.querySelector('input');
-                        if(inp) pwd = inp.value||'';
-                    }
-                    // 文本里的密码
-                    if(!pwd || pwd.length<5){
-                        var pw = t.match(/密码[\\s:：]*([A-Za-z0-9!@#$%^&*()\\-_=+.]{5,32})/);
-                        if(pw) pwd = pw[1];
-                    }
-                    if(!pwd || pwd.length<5 || pwd==='undefined') return;
-                    var ms = t.match(/(正常|解锁成功|可用)/);
-                    if(!ms) return;
-                    var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                    var mc = t.match(/美国|英国|日本|香港|台湾|韩国|越南/);
-                    out.push({email:em[0],pwd:pwd,
-                              time:mt?mt[0]:'',country:mc?mc[0]:'美国'});
-                });
-                return out;
-            """)
-            seen = set()
-            for d in (data or []):
-                e = (d.get("email") or "").lower()
-                p = (d.get("pwd") or "").strip()
-                if p in ("undefined","null",""): continue
-                if e and p and "@" in e and len(p)>=5 and e not in seen:
-                    seen.add(e)
-                    results.append({"email":e,"password":p,"status":"正常",
-                                     "checked_at":d.get("time",""),
-                                     "country":d.get("country","美国")})
-            if results: break
-            driver.refresh(); time.sleep(4)
-        except Exception as ex:
-            logger.warning(f"  idshare001 attempt {attempt}: {ex}")
-            driver.refresh(); time.sleep(4)
-
-    if not results:
-        scroll(driver)
-        results = from_inputs(driver) or generic_parse(driver)
-    logger.info(f"  idshare001 抓到: {len(results)}")
-    return dedup(results)
-
 
  
 # ──────────────────────────────────────────
@@ -567,79 +575,7 @@ def crawl_app_iosr_cn(driver):
         results = from_inputs(driver)
     return dedup(results)
     
-# ──────────────────────────────────────────
-# id.bocchi2b.top/
-# ──────────────────────────────────────────
-def crawl_bocchi2b(driver):
-    driver.get("https://id.bocchi2b.top/")
-    time.sleep(4)
-    for sel in ["//button[text()='Ok']","//button[text()='OK']","//button[text()='确定']",
-                "//div[contains(@class,'modal')]//button"]:
-        try:
-            btn = WebDriverWait(driver,4).until(EC.element_to_be_clickable((By.XPATH,sel)))
-            driver.execute_script("arguments[0].click();",btn); time.sleep(1); break
-        except Exception: pass
-    scroll(driver)
-    time.sleep(2)
 
-    results = []
-    try:
-        # 先点所有复制密码按钮
-        driver.execute_script("""
-            document.querySelectorAll('button').forEach(function(b){
-                if(b.innerText && b.innerText.includes('复制密码')){
-                    try{b.click();}catch(e){}
-                }
-            });
-        """)
-        time.sleep(2)
-
-        data = driver.execute_script("""
-            var out = [];
-            document.querySelectorAll('[class]').forEach(function(card){
-                var t = card.innerText || '';
-                if(t.length<15 || t.length>800) return;
-                var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
-                if(!em) return;
-                var inp = card.querySelector('input[type="text"],input:not([type]),input[type="password"]');
-                var pwd = inp ? inp.value : '';
-                if(!pwd || pwd.length<5){
-                    // 找非邮件、非日期、非状态词的短文本
-                    var spans = card.querySelectorAll('span,td,p');
-                    for(var i=0;i<spans.length;i++){
-                        var sv = (spans[i].innerText||'').trim();
-                        if(sv && sv.length>=5 && sv.length<=32
-                           && !sv.includes('@') && !sv.match(/^20\\d\\d/)
-                           && !sv.match(/正常|异常|复制|美国|香港|日本|台湾|韩国|越南|未知|蒙古/)){
-                            pwd = sv; break;
-                        }
-                    }
-                }
-                if(!pwd || pwd.length<5) return;
-                var mc = t.match(/香港|日本|美国|英国|台湾|韩国|澳大利亚|越南|蒙古|未知/);
-                var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                out.push({email:em[0],pwd:pwd,
-                          country:mc?mc[0]:'美国',time:mt?mt[0]:''});
-            });
-            return out;
-        """)
-        seen = set()
-        for d in (data or []):
-            e = (d.get("email") or "").lower()
-            p = (d.get("pwd") or "").strip()
-            if e and p and "@" in e and len(p)>=5 and e not in seen:
-                seen.add(e)
-                results.append({"email":e,"password":p,"status":"正常",
-                                 "checked_at":d.get("time",""),
-                                 "country":d.get("country","美国")})
-    except Exception as ex:
-        logger.warning(f"  bocchi2b JS: {ex}")
-
-    if not results:
-        results = from_inputs(driver) or generic_parse(driver)
-    logger.info(f"  bocchi2b 抓到: {len(results)}")
-    return dedup(results)
-    
 # ──────────────────────────────────────────
 # 139.196.183.52/share/DZhBvnglEU
 # ──────────────────────────────────────────
@@ -707,58 +643,6 @@ def crawl_ip_share(driver):
     return dedup(results)
     
 
-# ──────────────────────────────────────────
-# tkbaohe.com/Shadowrocket/
-# ──────────────────────────────────────────
-def crawl_tkbaohe(driver):
-    driver.get("https://tkbaohe.com/Shadowrocket/")
-    time.sleep(8)
-    scroll(driver)
-    time.sleep(2)
-
-    results = []
-    try:
-        data = driver.execute_script("""
-            var out = [];
-            var cards = document.querySelectorAll('div,li,tr,article');
-            cards.forEach(function(card){
-                var t = card.innerText || '';
-                if(t.length < 10 || t.length > 800) return;
-                var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
-                if(!em) return;
-                var inp = card.querySelector('input');
-                var pwd = inp ? (inp.value||inp.getAttribute('value')||'') : '';
-                if(!pwd || pwd.length<5){
-                    var pw = t.match(/密码[\\s:：]*([A-Za-z0-9!@#$%^&*()\\-_=+.]{5,32})/);
-                    if(pw) pwd = pw[1];
-                }
-                if(!pwd || pwd.length<5) return;
-                var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                var mc = t.match(/美国|英国|日本|香港|台湾|韩国|越南|澳大利亚|新加坡|中国大陆/);
-                out.push({email:em[0], pwd:pwd,
-                          time:mt?mt[0]:'', country:mc?mc[0]:'美国'});
-            });
-            return out;
-        """)
-        seen = set()
-        for d in (data or []):
-            e = (d.get("email") or "").lower()
-            p = (d.get("pwd") or "").strip()
-            if e and p and "@" in e and len(p)>=5 and e not in seen:
-                seen.add(e)
-                results.append({"email":e,"password":p,"status":"正常",
-                                 "checked_at":d.get("time",""),
-                                 "country":d.get("country","美国")})
-    except Exception as ex:
-        logger.warning(f"  tkbaohe JS: {ex}")
-
-    if not results:
-        results = from_inputs(driver)
-    if not results:
-        results = generic_parse(driver)
-    logger.info(f"  tkbaohe 抓到: {len(results)}")
-    return dedup(results)
-     
 
 
 

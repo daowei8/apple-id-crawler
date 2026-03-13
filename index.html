@@ -3,453 +3,346 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>共享 Apple ID</title>
+<title>共享 Apple ID · 小火箭账号</title>
 <style>
 :root{
-  --bg:#000;--bg2:#0d0d0d;
-  --card:rgba(255,255,255,.06);--card-h:rgba(255,255,255,.09);
-  --border:rgba(255,255,255,.08);--border-h:rgba(255,255,255,.16);
-  --text:#f5f5f7;--t2:rgba(245,245,247,.6);--t3:rgba(245,245,247,.35);
+  --bg:#000;--bg2:#111;
+  --card:rgba(255,255,255,.055);--card-h:rgba(255,255,255,.09);
+  --border:rgba(255,255,255,.08);--border-h:rgba(255,255,255,.18);
+  --text:#f5f5f7;--t2:rgba(245,245,247,.6);--t3:rgba(245,245,247,.34);
   --blue:#0071e3;--green:#30d158;--red:#ff453a;--orange:#ff9f0a;
-  --nav-bg:rgba(0,0,0,.78);
-  --r:12px;--R:18px;
+  --nav-bg:rgba(0,0,0,.8);--r:12px;--R:18px;
 }
 [data-theme=light]{
   --bg:#f2f2f7;--bg2:#fff;
-  --card:rgba(255,255,255,.92);--card-h:#fff;
-  --border:rgba(0,0,0,.08);--border-h:rgba(0,0,0,.15);
-  --text:#1c1c1e;--t2:rgba(28,28,30,.6);--t3:rgba(28,28,30,.35);
+  --card:#fff;--card-h:#fff;
+  --border:rgba(0,0,0,.09);--border-h:rgba(0,0,0,.18);
+  --text:#1c1c1e;--t2:rgba(28,28,30,.6);--t3:rgba(28,28,30,.34);
   --green:#1a8a35;--red:#c0392b;--orange:#b06000;
-  --nav-bg:rgba(242,242,247,.9);
+  --nav-bg:rgba(242,242,247,.92);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
-body{
-  background:var(--bg);color:var(--text);
-  font-family:-apple-system,"SF Pro Text","PingFang SC","Helvetica Neue",sans-serif;
-  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden;
-  transition:background .25s,color .25s;
-}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Text","PingFang SC","Helvetica Neue",sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden;transition:background .25s,color .25s}
+
+/* ══ OVERLAY ══ */
+#overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.88);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);display:flex;align-items:center;justify-content:center;padding:16px;transition:opacity .3s}
+.ov-box{background:var(--bg2);border:.5px solid var(--border-h);border-radius:24px;padding:0;max-width:480px;width:100%;overflow:hidden;animation:popIn .35s cubic-bezier(.34,1.4,.64,1) both}
+@keyframes popIn{from{opacity:0;transform:scale(.82) translateY(20px)}to{opacity:1;transform:none}}
+
+/* 步骤1：答题 */
+#step-quiz{padding:32px 28px 28px;text-align:center}
+.ov-hint{font-size:12px;color:var(--t3);margin-bottom:10px;letter-spacing:.3px}
+.ov-title{font-size:20px;font-weight:700;line-height:1.4;margin-bottom:5px}
+.ov-sub{font-size:13px;color:var(--t2);margin-bottom:22px}
+.quiz-opts{display:flex;justify-content:center;gap:14px;margin-bottom:18px}
+.quiz-opt{width:88px;height:88px;border-radius:20px;border:2px solid var(--border);background:var(--card);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:all .18s;padding:8px}
+.quiz-opt:hover{border-color:var(--blue);transform:scale(1.06)}
+.quiz-opt:active{transform:scale(.94)}
+.quiz-opt img{width:56px;height:56px;object-fit:contain;border-radius:12px;pointer-events:none}
+.quiz-opt span{font-size:10px;color:var(--t3)}
+.quiz-wrong{background:rgba(255,69,58,.1);border:.5px solid rgba(255,69,58,.3);color:#ff6060;border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;margin-bottom:14px;display:none;animation:shake .4s}
+.quiz-wrong.show{display:block}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}60%{transform:translateX(9px)}}
+.quiz-footer{font-size:12px;color:var(--t3)}
+.quiz-footer a{color:var(--blue);text-decoration:none;font-weight:500}
+.quiz-footer a:hover{text-decoration:underline}
+
+/* 步骤2/3：教程图片 */
+#step-tut,#step-2fa{padding:0;display:none}
+.tut-header{padding:20px 24px 0;text-align:center}
+.tut-header h3{font-size:18px;font-weight:700;margin-bottom:4px}
+.tut-header p{font-size:13px;color:var(--t2)}
+.tut-img-wrap{padding:16px 20px;max-height:65vh;overflow-y:auto}
+.tut-img-wrap img{width:100%;border-radius:12px;display:block}
+.img-placeholder{background:var(--card);border-radius:12px;padding:40px 20px;text-align:center;color:var(--t3);font-size:13px;line-height:1.8}
+.tut-footer{padding:0 20px 20px;display:flex;flex-direction:column;gap:10px}
+.tut-note{font-size:12px;text-align:center;line-height:1.6;padding:8px 12px;background:rgba(255,159,10,.08);border-radius:8px;border:.5px solid rgba(255,159,10,.2);color:var(--orange)}
+.know-btn{width:100%;border:none;border-radius:980px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.know-btn:active{transform:scale(.97)}
+.know-btn-blue{background:var(--blue);color:#fff}.know-btn-blue:hover{opacity:.88}
+.know-btn-green{background:var(--green);color:#fff}.know-btn-green:hover{opacity:.88}
 
 /* ══ NAV ══ */
-nav{
-  position:sticky;top:0;z-index:200;height:54px;
-  background:var(--nav-bg);
-  backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);
-  border-bottom:.5px solid var(--border);
-  display:flex;align-items:center;padding:0 20px;gap:10px;
-}
-.nav-logo{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700;letter-spacing:-.4px;flex:1;min-width:0}
-.nav-badge{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--t2);background:var(--card);border:.5px solid var(--border-h);border-radius:20px;padding:3px 11px;white-space:nowrap;flex-shrink:0}
-.nav-badge b{color:var(--green);font-weight:700}
-.icon-btn{width:34px;height:34px;border-radius:50%;background:var(--card);border:.5px solid var(--border);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .2s;flex-shrink:0}
+nav{position:sticky;top:0;z-index:100;height:52px;background:var(--nav-bg);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-bottom:.5px solid var(--border);display:flex;align-items:center;padding:0 18px;gap:10px}
+.nav-logo{display:flex;align-items:center;gap:7px;font-size:16px;font-weight:700;letter-spacing:-.4px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav-cnt{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--t2);background:var(--card);border:.5px solid var(--border-h);border-radius:20px;padding:3px 11px;white-space:nowrap;flex-shrink:0}
+.nav-cnt b{color:var(--green);font-weight:700}
+.icon-btn{width:34px;height:34px;border-radius:50%;background:var(--card);border:.5px solid var(--border);color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .2s;flex-shrink:0;text-decoration:none}
 .icon-btn:hover{background:var(--card-h);color:var(--text)}
-.buy-btn{background:var(--orange);color:#fff;border:none;border-radius:980px;padding:0 14px;height:34px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;font-family:inherit;transition:opacity .15s;flex-shrink:0;text-decoration:none;display:inline-flex;align-items:center}
+.buy-btn{background:var(--orange);color:#fff;border:none;border-radius:980px;padding:0 14px;height:34px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit;transition:opacity .15s;flex-shrink:0;text-decoration:none;display:flex;align-items:center;gap:4px}
 .buy-btn:hover{opacity:.85}
 
-/* ══ QUIZ ══ */
-#quiz-overlay{
-  position:fixed;inset:0;z-index:500;
-  background:rgba(0,0,0,.85);
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  display:flex;align-items:center;justify-content:center;padding:20px;
-}
-[data-theme=light] #quiz-overlay{background:rgba(0,0,0,.6)}
-.quiz-box{
-  background:var(--bg2);border:.5px solid var(--border-h);
-  border-radius:24px;padding:32px 28px;max-width:440px;width:100%;
-  text-align:center;animation:popIn .3s cubic-bezier(.34,1.56,.64,1) both;
-}
-@keyframes popIn{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
-.quiz-tip{font-size:12px;color:var(--t3);margin-bottom:12px;letter-spacing:.3px}
-.quiz-title{font-size:20px;font-weight:700;line-height:1.4;margin-bottom:6px}
-.quiz-sub{font-size:13px;color:var(--t2);margin-bottom:24px}
-.quiz-options{display:flex;justify-content:center;gap:20px;margin-bottom:20px}
-.quiz-opt{
-  width:80px;height:80px;border-radius:18px;
-  background:var(--card);border:2px solid var(--border);
-  cursor:pointer;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;
-  transition:all .15s;overflow:hidden;padding:8px;
-}
-.quiz-opt:hover{border-color:var(--blue);background:rgba(0,113,227,.08);transform:scale(1.05)}
-.quiz-opt:active{transform:scale(.96)}
-.quiz-opt-emoji{font-size:32px;line-height:1}
-.quiz-opt-label{font-size:10px;color:var(--t2)}
-.quiz-wrong{
-  background:rgba(255,69,58,.1);border:.5px solid rgba(255,69,58,.3);
-  color:var(--red);border-radius:10px;padding:10px 14px;
-  font-size:13px;font-weight:600;margin-bottom:16px;display:none;
-}
-.quiz-wrong.show{display:block;animation:shake .4s ease}
-@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
-.quiz-footer{font-size:12px;color:var(--t3)}
-.quiz-footer a{color:var(--blue);text-decoration:none}
-
 /* ══ BANNER ══ */
-.banner-wrap{
-  position:relative;overflow:hidden;
-  background:linear-gradient(135deg,#0a0a0a 0%,#0d1a2e 50%,#0a0a0a 100%);
-  max-width:960px;margin:0 auto;border-radius:0;
-}
-[data-theme=light] .banner-wrap{background:linear-gradient(135deg,#e8f0fe 0%,#dce8ff 50%,#e8f0fe 100%)}
-.banner-img{width:100%;display:block;object-fit:contain;max-height:160px;}
-.banner-fallback{
-  display:flex;align-items:center;justify-content:center;gap:24px;
-  padding:22px 28px;flex-wrap:wrap;
-}
-.banner-left{display:flex;align-items:center;gap:14px}
-.banner-apple{font-size:32px}
-.banner-text{text-align:left}
-.banner-text h2{font-size:18px;font-weight:700;letter-spacing:-.3px}
-.banner-text p{font-size:12px;color:var(--t2);margin-top:2px}
-.banner-divider{width:.5px;height:50px;background:var(--border);flex-shrink:0}
-.banner-right{display:flex;align-items:center;gap:12px}
-.banner-icon{font-size:28px}
-.banner-tip{font-size:13px}
-.banner-tip strong{display:block;font-weight:700;font-size:15px}
-.banner-tip span{color:var(--t2);font-size:12px}
-.banner-sub-tag{background:var(--blue);color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:2px 8px;display:inline-block;margin-top:4px}
-
-/* 购买箭头提示 */
-.buy-hint{
-  text-align:right;padding:6px 12px 0;
-  font-size:12px;color:var(--orange);font-weight:600;
-  animation:fadeUp .4s ease both;
-  max-width:960px;margin:0 auto;
-}
+.banner{width:100%;display:block;background:#000}
+.banner img{width:100%;height:auto;display:block;object-fit:contain}
+.banner-fallback{display:none;background:linear-gradient(135deg,#0a1628 0%,#0d2140 50%,#0a1628 100%);padding:18px 22px}
+[data-theme=light] .banner-fallback{background:linear-gradient(135deg,#dce8ff 0%,#e8f0fe 50%,#dce8ff 100%)}
+.bf-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.bf-left{display:flex;align-items:center;gap:12px}
+.bf-left h2{font-size:17px;font-weight:700}
+.bf-left p{font-size:12px;color:var(--t2);margin-top:2px}
+.bf-right{display:flex;align-items:center;gap:10px}
+.bf-right .tag{background:var(--red);color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:3px 9px}
+.bf-right p{font-size:13px;font-weight:600}
 
 /* ══ MAIN ══ */
-main{max-width:960px;margin:0 auto;padding:14px 16px 80px;}
+main{max-width:100%;padding:0 16px 80px}
+.inner{max-width:1400px;margin:0 auto}
 
-/* ══ 警告横幅 ══ */
-.warn-bar{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 16px;border-radius:var(--r);
-  font-size:12.5px;font-weight:500;line-height:1.4;
-  margin-bottom:8px;animation:fadeUp .4s ease both;
-  white-space:nowrap;overflow:hidden;
-}
-.warn-bar span.txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.warn-red{background:rgba(255,69,58,.1);border:.5px solid rgba(255,69,58,.3);color:#ff6b63;}
-.warn-orange{background:rgba(255,159,10,.1);border:.5px solid rgba(255,159,10,.3);color:#ff9f0a;}
-.warn-blue{background:rgba(0,113,227,.1);border:.5px solid rgba(0,113,227,.3);color:#409cff;}
-[data-theme=light] .warn-red{color:#b02020}
-[data-theme=light] .warn-orange{color:#8a4a00}
-[data-theme=light] .warn-blue{color:#0055aa}
-.warn-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.dot-red{background:#ff453a}.dot-orange{background:#ff9f0a}.dot-blue{background:#0071e3}
+/* ══ 三条警告 ══ */
+.warns{display:grid;gap:8px;padding-top:18px;margin-bottom:14px}
+.warn{display:flex;align-items:center;gap:10px;padding:10px 15px;border-radius:var(--r);font-size:12.5px;font-weight:500;line-height:1.4;animation:fadeUp .4s ease both;overflow:hidden}
+.warn:nth-child(2){animation-delay:.07s}.warn:nth-child(3){animation-delay:.14s}
+.warn strong{font-weight:700}
+.warn-txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.warn-r{background:rgba(255,69,58,.1);border:.5px solid rgba(255,69,58,.28);color:#ff6060}
+.warn-o{background:rgba(255,159,10,.08);border:.5px solid rgba(255,159,10,.28);color:var(--orange)}
+.warn-b{background:rgba(0,113,227,.1);border:.5px solid rgba(0,113,227,.28);color:#5aabff}
+[data-theme=light] .warn-r{color:#b02020}[data-theme=light] .warn-o{color:#8a4800}[data-theme=light] .warn-b{color:#0055b0}
 
-/* ══ 须知区域 ══ */
-.notice-section{
-  background:var(--card);border:.5px solid var(--border);border-radius:var(--R);
-  overflow:hidden;margin-bottom:10px;animation:fadeUp .4s ease .06s both;
-}
-.notice-head{padding:12px 17px;display:flex;align-items:center;gap:9px;border-bottom:.5px solid var(--border)}
-.notice-head-icon{font-size:15px}
-.notice-title{font-size:14px;font-weight:700}
-.notice-body{padding:14px 17px;display:grid;grid-template-columns:1fr 1fr;gap:0 24px;}
-@media(max-width:600px){.notice-body{grid-template-columns:1fr}}
-.notice-col h4{font-size:12px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
-.notice-list{list-style:none;display:grid;gap:6px;margin-bottom:12px}
-.notice-list li{display:flex;gap:8px;font-size:12.5px;color:var(--t2);line-height:1.55}
-.notice-list li::before{content:"•";color:var(--blue);flex-shrink:0;font-weight:700}
-.notice-list li.red::before{color:var(--red)}
-.notice-list li.orange::before{color:var(--orange)}
-.notice-step{display:flex;gap:10px;align-items:flex-start;margin-bottom:7px}
-.step-num{width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
-.step-text{font-size:12.5px;color:var(--t2);line-height:1.55}
-
-/* 购买警告区块 */
-.purchase-warn{
-  background:rgba(255,69,58,.06);border:.5px solid rgba(255,69,58,.2);
-  border-radius:10px;padding:12px 14px;margin-top:10px;
-  font-size:12px;color:var(--t2);line-height:1.7;
-}
-.purchase-warn strong{color:#ff6b63}
-[data-theme=light] .purchase-warn{color:#555}
-
-/* 机场推荐 */
-.airport-section{
-  background:rgba(0,113,227,.06);border:.5px solid rgba(0,113,227,.2);
-  border-radius:10px;padding:12px 14px;margin-top:10px;
-  font-size:12.5px;
-}
-.airport-title{font-weight:700;color:var(--blue);margin-bottom:8px;font-size:13px}
-.airport-list{display:flex;flex-wrap:wrap;gap:8px}
-.airport-btn{
-  display:inline-flex;align-items:center;gap:5px;
-  background:var(--blue);color:#fff;border-radius:8px;
-  padding:6px 12px;font-size:12px;font-weight:600;text-decoration:none;
-  transition:opacity .15s;
-}
+/* ══ 购买警告 + 机场 ══ */
+.notice-block{background:var(--card);border:.5px solid var(--border);border-radius:var(--R);padding:16px 20px;margin-bottom:14px;animation:fadeUp .4s ease .18s both}
+.notice-block h3{font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;margin-bottom:10px;padding-bottom:8px;border-bottom:.5px solid var(--border)}
+.purchase-warn{font-size:12px;color:var(--t2);line-height:1.75;margin-bottom:12px}
+.purchase-warn strong{color:#ff6b63;font-weight:700}
+[data-theme=light] .purchase-warn strong{color:#b02020}
+.airport-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.airport-label{font-size:12px;color:var(--t3);flex-shrink:0}
+.airport-btn{display:inline-flex;align-items:center;gap:5px;background:var(--blue);color:#fff;border-radius:8px;padding:6px 13px;font-size:12px;font-weight:600;text-decoration:none;transition:opacity .15s}
 .airport-btn:hover{opacity:.85}
+.airport-btn.b2{background:#555}
 
-/* ══ TOOLBAR ══ */
-.toolbar{display:flex;gap:10px;margin-bottom:14px;align-items:center;animation:fadeUp .4s ease .22s both}
-.search-box{flex:1;position:relative}
-.search-box input{width:100%;background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:11px 14px 11px 38px;font-size:14px;color:var(--text);font-family:inherit;outline:none;transition:border .2s,background .2s}
-.search-box input::placeholder{color:var(--t3)}
-.search-box input:focus{border-color:var(--blue);background:rgba(0,113,227,.05)}
-.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none}
-.count-label{font-size:13px;color:var(--t3);white-space:nowrap}
+/* ══ 搜索栏 ══ */
+.toolbar{display:flex;gap:10px;margin-bottom:14px;align-items:center;animation:fadeUp .4s ease .28s both}
+.sbox{flex:1;position:relative}
+.sbox input{width:100%;background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:10px 14px 10px 36px;font-size:14px;color:var(--text);font-family:inherit;outline:none;transition:border .2s,background .2s}
+.sbox input::placeholder{color:var(--t3)}
+.sbox input:focus{border-color:var(--blue)}
+.si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none}
+.cnt-lbl{font-size:12px;color:var(--t3);white-space:nowrap}
 
-/* ══ 账号网格 ══ */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;animation:fadeUp .4s ease .3s both}
-
-/* 账号卡片 */
-.id-card{
-  background:var(--card);border:.5px solid var(--border);border-radius:var(--R);
-  padding:16px;display:flex;flex-direction:column;gap:11px;
-  transition:background .15s,transform .15s,box-shadow .15s;
-}
-.id-card:hover{background:var(--card-h);transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,0,0,.25)}
+/* ══ 账号卡片网格 ══ */
+.grid{display:grid;gap:10px;animation:fadeUp .4s ease .32s both;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.id-card{background:var(--card);border:.5px solid var(--border);border-radius:var(--R);padding:15px;display:flex;flex-direction:column;gap:10px;transition:background .15s,transform .15s,box-shadow .15s}
+.id-card:hover{background:var(--card-h);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.22)}
 [data-theme=light] .id-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1)}
-.card-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.card-num{font-size:11px;color:var(--t3);font-weight:500}
-.s-ok{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--green);background:rgba(48,209,88,.1);border-radius:20px;padding:2px 9px}
-.s-err{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--red);background:rgba(255,69,58,.1);border-radius:20px;padding:2px 9px}
-.dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0}
-.card-time{font-size:11px;color:var(--t3);margin-left:auto}
-.card-field{display:flex;align-items:center;gap:8px}
-.field-label{font-size:11px;color:var(--t3);font-weight:500;width:28px;flex-shrink:0;letter-spacing:.2px}
-.field-val{flex:1;min-width:0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.field-val.mono{font-family:"SF Mono","Menlo",monospace;font-size:12px;letter-spacing:.4px}
-.pwd-dots{color:var(--t2);letter-spacing:3px;font-size:16px}
-.eye-btn{width:28px;height:28px;border:none;border-radius:50%;background:transparent;color:var(--t3);cursor:pointer;font-size:14px;transition:color .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0}
-.eye-btn:hover{color:var(--text)}
-.card-btns{display:flex;gap:7px;padding-top:2px;border-top:.5px solid var(--border)}
-.cbtn{flex:1;border:none;border-radius:980px;padding:9px 0;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit}
-.cbtn:active{transform:scale(.95)}
-.cbtn-acc{background:var(--card-h);color:var(--text)}
-.cbtn-acc:hover{filter:brightness(1.15)}
-.cbtn-pwd{background:var(--blue);color:#fff}
-.cbtn-pwd:hover{opacity:.85}
+.ct{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.cn{font-size:11px;color:var(--t3);font-weight:500}
+.s-ok{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--green);background:rgba(48,209,88,.1);border-radius:20px;padding:2px 8px}
+.s-err{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;color:var(--red);background:rgba(255,69,58,.1);border-radius:20px;padding:2px 8px}
+.dot{width:4px;height:4px;border-radius:50%;background:currentColor;flex-shrink:0}
+.ctime{font-size:11px;color:var(--t3);margin-left:auto;white-space:nowrap}
+.cf{display:flex;align-items:center;gap:7px}
+.cl{font-size:11px;color:var(--t3);width:26px;flex-shrink:0}
+.cv{flex:1;min-width:0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cv.mono{font-family:"SF Mono","Menlo",monospace;font-size:12px;letter-spacing:.3px}
+.pdots{color:var(--t2);letter-spacing:3px;font-size:15px}
+.eyebtn{width:26px;height:26px;border:none;border-radius:50%;background:transparent;color:var(--t3);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;padding:0;transition:color .15s}
+.eyebtn:hover{color:var(--text)}
+.cbtns{display:flex;gap:6px;border-top:.5px solid var(--border);padding-top:2px}
+.cbtn{flex:1;border:none;border-radius:980px;padding:8px 0;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
+.cbtn:active{transform:scale(.94)}
+.cbtn-a{background:var(--card-h);color:var(--text)}.cbtn-a:hover{filter:brightness(1.15)}
+.cbtn-p{background:var(--blue);color:#fff}.cbtn-p:hover{opacity:.85}
 .cbtn.ok{background:var(--green)!important;color:#fff}
-.card-rocket{font-size:11px;color:var(--t3);text-align:center;padding-top:2px}
-
-/* App Store跳转 */
-.store-tip{
-  display:none;margin-top:2px;
-  padding:9px 12px;border-radius:10px;
-  background:rgba(0,113,227,.1);border:.5px solid rgba(0,113,227,.3);
-  font-size:12px;color:#409cff;line-height:1.5;
-  animation:fadeUp .3s ease both;
-}
-[data-theme=light] .store-tip{color:#0060c0}
+.rocket-tip{font-size:11.5px;color:var(--orange);background:rgba(255,159,10,.07);border:.5px solid rgba(255,159,10,.2);border-radius:8px;padding:6px 10px;line-height:1.5}
+.store-tip{display:none;padding:8px 10px;border-radius:9px;background:rgba(0,113,227,.1);border:.5px solid rgba(0,113,227,.28);font-size:12px;color:#5aabff;line-height:1.5;animation:fadeUp .3s ease both}
+[data-theme=light] .store-tip{color:#0055b0}
 .store-tip.show{display:block}
 .store-tip a{color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:2px}
 
 /* ══ 翻页 ══ */
-.pager{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:20px;flex-wrap:wrap}
-.pager button{background:var(--card);border:.5px solid var(--border);color:var(--t2);width:36px;height:36px;border-radius:var(--r);cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
-.pager button:hover:not(:disabled){border-color:var(--blue);color:var(--blue);background:rgba(0,113,227,.08)}
+.pager{display:flex;align-items:center;justify-content:center;gap:5px;margin-top:18px;flex-wrap:wrap}
+.pager button{background:var(--card);border:.5px solid var(--border);color:var(--t2);width:34px;height:34px;border-radius:var(--r);cursor:pointer;font-size:13px;transition:all .15s;font-family:inherit}
+.pager button:hover:not(:disabled){border-color:var(--blue);color:var(--blue)}
 .pager button.on{background:var(--blue);color:#fff;border-color:var(--blue)}
-.pager button:disabled{opacity:.25;cursor:default}
+.pager button:disabled{opacity:.22;cursor:default}
 .pager-info{font-size:12px;color:var(--t3);padding:0 6px}
-
-.empty{text-align:center;padding:80px 20px;color:var(--t3);font-size:14px;grid-column:1/-1}
-.spin{width:30px;height:30px;margin:0 auto 16px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+.empty{text-align:center;padding:70px 20px;color:var(--t3);font-size:14px;grid-column:1/-1}
+.spin{width:28px;height:28px;margin:0 auto 14px;border:2px solid var(--border);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-@keyframes fadeOut{to{opacity:0;pointer-events:none}}
-
-footer{text-align:center;padding:24px;font-size:12px;color:var(--t3)}
+footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
 
 @media(max-width:480px){
-  nav{padding:0 14px;gap:7px}.nav-logo{font-size:14px}.nav-badge{display:none}
-  main{padding:10px 12px 70px}
-  .quiz-box{padding:24px 20px}.quiz-opt{width:70px;height:70px}
-  .banner-divider{display:none}
-  .warn-bar{font-size:11.5px}
-  .notice-body{grid-template-columns:1fr}
+  nav{padding:0 12px;gap:7px}.nav-logo{font-size:14px}.nav-cnt{display:none}
+  .quiz-opt{width:76px;height:76px}.quiz-opt img{width:48px;height:48px}
+  #step-quiz{padding:24px 18px 20px}
+  .tut-img-wrap{padding:12px 14px}
+  .tut-footer{padding:0 14px 16px}
 }
 </style>
 </head>
 <body>
 
-<!-- ══ 答题遮罩 ══ -->
-<div id="quiz-overlay">
-  <div class="quiz-box">
-    <div class="quiz-tip">避免误登 iCloud，请回答以下问题</div>
-    <div class="quiz-title">正确登录 App Store<br>是在以下哪个图标内？</div>
-    <div class="quiz-sub">请点击正确图标（不知道请先看教程）</div>
-    <div class="quiz-wrong" id="quiz-wrong">❌ 选错了！请认真看图标，只能在 App Store 内登录</div>
-    <div class="quiz-options">
-      <!-- 设置（错）-->
-      <div class="quiz-opt" onclick="quizAnswer(false)">
-        <span class="quiz-opt-emoji">⚙️</span>
-        <span class="quiz-opt-label">设置</span>
+<!-- ══ OVERLAY ══ -->
+<div id="overlay">
+  <div class="ov-box" id="ov-box">
+
+    <!-- 步骤1：答题 -->
+    <div id="step-quiz">
+      <div class="ov-hint">避免误登 iCloud，请先回答问题</div>
+      <div class="ov-title">正确登录 App Store<br>是在哪个图标内？</div>
+      <div class="ov-sub">请点击正确图标（不知道请先看教程）</div>
+      <div class="quiz-wrong" id="quiz-wrong">❌ 选错了！请认真看图标，只能在 App Store 内登录！</div>
+      <div class="quiz-opts">
+        <!-- 设置（错）-->
+        <div class="quiz-opt" onclick="quizWrong()">
+          <img src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/icon-settings.png"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='block'"
+               alt="设置"/>
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23636366'/%3E%3Ccircle cx='50' cy='50' r='18' fill='none' stroke='white' stroke-width='6'/%3E%3Ccircle cx='50' cy='50' r='7' fill='white'/%3E%3Crect x='47' y='14' width='6' height='14' rx='3' fill='white'/%3E%3Crect x='47' y='72' width='6' height='14' rx='3' fill='white'/%3E%3Crect x='14' y='47' width='14' height='6' rx='3' fill='white'/%3E%3Crect x='72' y='47' width='14' height='6' rx='3' fill='white'/%3E%3C/svg%3E"
+               style="display:none" alt="设置"/>
+          <span>设置</span>
+        </div>
+        <!-- iCloud（错）-->
+        <div class="quiz-opt" onclick="quizWrong()">
+          <img src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/icon-icloud.png"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='block'"
+               alt="iCloud"/>
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234FC3F7'/%3E%3Cellipse cx='50' cy='58' rx='30' ry='16' fill='white'/%3E%3Ccircle cx='36' cy='52' r='14' fill='white'/%3E%3Ccircle cx='62' cy='48' r='18' fill='white'/%3E%3C/svg%3E"
+               style="display:none" alt="iCloud"/>
+          <span>iCloud</span>
+        </div>
+        <!-- App Store（正确）-->
+        <div class="quiz-opt" onclick="quizCorrect()" style="border-color:rgba(0,113,227,.3)">
+          <img src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/icon-appstore.png"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='block'"
+               alt="App Store"/>
+          <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%2322C1F3'/%3E%3Cstop offset='100%25' stop-color='%230071E3'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='22' fill='url(%23g)'/%3E%3Cpath d='M50 18L64 44H80L62 74H38L20 44H36Z' fill='white'/%3E%3Cpath d='M36 44H20L30 62H46Z' fill='white' opacity='.7'/%3E%3C/svg%3E"
+               style="display:none" alt="App Store"/>
+          <span>App Store</span>
+        </div>
       </div>
-      <!-- iCloud（错）-->
-      <div class="quiz-opt" onclick="quizAnswer(false)">
-        <span class="quiz-opt-emoji">☁️</span>
-        <span class="quiz-opt-label">iCloud</span>
-      </div>
-      <!-- App Store（对）-->
-      <div class="quiz-opt" onclick="quizAnswer(true)" style="border-color:transparent">
-        <svg width="48" height="48" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="asg" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style="stop-color:#22C1F3"/>
-              <stop offset="100%" style="stop-color:#0071E3"/>
-            </linearGradient>
-          </defs>
-          <rect width="100" height="100" rx="22" fill="url(#asg)"/>
-          <path d="M50 18 L62 40 H74 L56 72 L44 72 L36 55 H48 Z" fill="white" opacity=".95"/>
-          <path d="M38 40 H26 L34 55 H46 Z" fill="white" opacity=".95"/>
-        </svg>
-        <span class="quiz-opt-label">App Store</span>
+      <div class="quiz-footer">
+        不确定？<a href="#" onclick="goTutorial();return false">点击查看登录教程</a>
       </div>
     </div>
-    <div class="quiz-footer">
-      不确定？<a href="#" onclick="showTutorial();return false">点击查看教程</a>
+
+    <!-- 步骤2：登录教程图 -->
+    <div id="step-tut">
+      <div class="tut-header">
+        <h3>📖 App Store 登录教程</h3>
+        <p>请仔细阅读，避免误登 iCloud 导致锁机</p>
+      </div>
+      <div class="tut-img-wrap">
+        <img
+          src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/tutorial.png"
+          alt="登录教程"
+          onerror="this.style.display='none';document.getElementById('tut-placeholder').style.display='block'"/>
+        <div id="tut-placeholder" class="img-placeholder" style="display:none">
+          📷 教程图片加载失败，请上传到仓库 <code>guide/tutorial.png</code>
+        </div>
+      </div>
+      <div class="tut-footer">
+        <div class="tut-note">⚠️ 请务必在 App Store（蓝色图标）内登录，切勿在手机设置或 iCloud 中登录！</div>
+        <button class="know-btn know-btn-blue" onclick="goStep2FA()">✅ 我已了解，下一步</button>
+      </div>
     </div>
+
+    <!-- 步骤3：2FA 双重认证说明 -->
+    <div id="step-2fa">
+      <div class="tut-header">
+        <h3>🔐 双重认证处理方法</h3>
+        <p>登录时遇到此界面，必须按以下操作</p>
+      </div>
+      <div class="tut-img-wrap">
+        <img
+          src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/2fa.png"
+          alt="双重认证教程"
+          onerror="this.style.display='none';document.getElementById('tfa-placeholder').style.display='block'"/>
+        <div id="tfa-placeholder" class="img-placeholder" style="display:none">
+          📷 2FA 教程图片加载失败，请上传到仓库 <code>guide/2fa.png</code>
+        </div>
+      </div>
+      <div class="tut-footer">
+        <div class="tut-note" style="color:#ff6060;background:rgba(255,69,58,.08);border-color:rgba(255,69,58,.2)">🚨 遇到双重认证必须点「其他选项」→「不要升级」，否则账号密码会被重置！</div>
+        <button class="know-btn know-btn-green" onclick="goMain()">✅ 我已了解，开始使用</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
 <!-- ══ NAV ══ -->
 <nav>
   <div class="nav-logo">
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0">
       <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
     </svg>
-    <span>共享 Apple ID</span>
+    共享 Apple ID
   </div>
-  <div class="nav-badge">共 <b id="hTotal">-</b> 个账号</div>
-  <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="切换亮/暗色">🌙</button>
-  <div style="position:relative;flex-shrink:0">
-    <a class="buy-btn" href="https://3335.eu.cc" target="_blank">🛒 购买海外账号</a>
-    <div style="position:absolute;top:40px;left:50%;transform:translateX(-50%);pointer-events:none;z-index:300;display:flex;justify-content:center;">
-      <svg id="buyArrowSvg" width="20" height="28" viewBox="0 0 20 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M10 2 L10 20" stroke="#ff9f0a" stroke-width="2.5" stroke-linecap="round"/>
-        <path d="M3 14 L10 22 L17 14" stroke="#ff9f0a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </div>
-  </div>
+  <div class="nav-cnt">共 <b id="hTotal">-</b> 个账号</div>
+  <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="切换主题">🌙</button>
+  <a class="buy-btn" href="https://3335.eu.cc" target="_blank" rel="noopener">🛒 购买海外账号</a>
 </nav>
-<style>
-#buyArrowSvg{animation:buyBounce 1s ease-in-out infinite}
-@keyframes buyBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
-</style>
 
 <!-- ══ BANNER ══ -->
-<div style="max-width:960px;margin:0 auto">
-  <img src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/banner.png"
-       id="bannerImg"
-       style="width:100%;display:block;object-fit:contain;max-height:160px;"
-       alt="banner"
-       onerror="this.style.display='none';document.getElementById('banner-fb').style.display='flex'"/>
-  <div id="banner-fb" style="display:none;background:linear-gradient(135deg,#0a0a0a,#0d1a2e,#0a0a0a);padding:22px 28px;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;">
-    <div style="display:flex;align-items:center;gap:14px">
-      <span style="font-size:32px">🍎</span>
-      <div>
-        <div style="font-size:18px;font-weight:700">iOS 共享 Apple ID</div>
-        <div style="font-size:12px;color:var(--t2)">正确登录 App Store · 必须在此图标内</div>
+<div class="banner">
+  <img
+    src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/banner.png"
+    alt="banner"
+    style="width:100%;height:auto;display:block"
+    onerror="this.style.display='none';document.querySelector('.banner-fallback').style.display='block'"/>
+  <div class="banner-fallback">
+    <div class="bf-inner">
+      <div class="bf-left">
+        <div style="font-size:32px">📱</div>
+        <div>
+          <h2>iOS 共享 Apple ID · 小火箭账号</h2>
+          <p>免费共享 · 每小时自动更新 · 自动检测可用性</p>
+        </div>
       </div>
-    </div>
-    <div style="width:.5px;height:50px;background:var(--border)"></div>
-    <div style="display:flex;align-items:center;gap:12px">
-      <span style="font-size:28px">🔔</span>
-      <div>
-        <div style="font-weight:700;font-size:15px">登录出现双重认证时</div>
-        <div style="color:var(--t2);font-size:12px">点「其他选项」再点「不升级」</div>
-        <div style="background:var(--blue);color:#fff;font-size:11px;font-weight:700;border-radius:6px;padding:2px 8px;display:inline-block;margin-top:4px">切勿点升级账号安全</div>
+      <div class="bf-right">
+        <span class="tag">必读</span>
+        <p>登录出现双重认证<br>点「其他选项」→「不升级」</p>
       </div>
     </div>
   </div>
 </div>
 
-<!-- 购买箭头提示 -->
-<div class="buy-hint">← 购买海外账号请点击右上角按钮 🛒</div>
-
 <main>
+<div class="inner">
 
   <!-- 三条警告 -->
-  <div class="warn-bar warn-red" style="animation-delay:.02s">
-    <span class="warn-dot dot-red"></span>
-    <span class="txt">⚠️ 请务必在 App Store（蓝色图标）内登录，切勿在手机设置或 iCloud 中登录！</span>
-  </div>
-  <div class="warn-bar warn-orange" style="animation-delay:.08s">
-    <span class="warn-dot dot-orange"></span>
-    <span class="txt">🔐 遇到双重认证必须点「其他选项」→「不要升级」，否则账号密码会被重置！</span>
-  </div>
-  <div class="warn-bar warn-blue" style="animation-delay:.14s">
-    <span class="warn-dot dot-blue"></span>
-    <span class="txt">💡 账号每小时自动更新，失效请刷新页面。账号内已购部分应用，提示付费可直接点下载。下载完后请立即退出共享账号。</span>
-  </div>
-
-  <!-- 须知 + 教程区域 -->
-  <div class="notice-section" style="margin-top:14px">
-    <div class="notice-head">
-      <span class="notice-head-icon">📋</span>
-      <span class="notice-title">使用须知 &amp; 操作教程</span>
+  <div class="warns">
+    <div class="warn warn-r">
+      <span style="font-size:16px;flex-shrink:0">🔴</span>
+      <span class="warn-txt"><strong>严重警告！</strong>共享账号只能在 <strong>App Store（蓝色图标）</strong>内登录！切勿在手机【设置】或【iCloud】中登录，否则会被坏人<strong>远程锁机勒索！</strong></span>
     </div>
-    <div class="notice-body">
-      <!-- 左列：须知 -->
-      <div>
-        <div class="notice-col"><h4>须知事项</h4></div>
-        <ul class="notice-list">
-          <li class="red">只能在 App Store 蓝色图标内登录</li>
-          <li class="red">切勿登录手机【设置】或【iCloud】</li>
-          <li class="orange">登录时弹出升级提示必须点「其他选项→不升级」</li>
-          <li>账号随时可能失效，失效请刷新重新获取</li>
-          <li>账号内已购买部分应用，提示付费可直接点下载</li>
-          <li>⚠️ 如账号未购买小火箭，请更换其他账号重试</li>
-        </ul>
-
-        <!-- 购买警告 -->
-        <div class="purchase-warn">
-          <strong>📢 购买警告：</strong>本商品只是临时租借账号给你用于下载App，至于App你是否会使用以及App内是否需要额外购买服务等与本站无关，本站不教App使用和提供服务！<br><br>
-          <strong>额外提醒：</strong>TikTok和Shadowrocket都不是下载就能直接使用的，TikTok有锁区规则，Shadowrocket需要自备节点服务器，同时这两个App都需要iOS 12以上系统，如果不会使用请勿购买；好比你用本站苹果账号下载炒股软件我不可能还得教你炒股？<br><br>
-          使用 Shadowrocket 还需要搭配机场节点服务，推荐下方老牌机场👇
-        </div>
-
-        <!-- 机场推荐 -->
-        <div class="airport-section">
-          <div class="airport-title">🛫 推荐搭配老牌机场（Shadowrocket需要节点）</div>
-          <div class="airport-list">
-            <a class="airport-btn" href="https://aff.v2ny.mom?path=register&code=iEwQYZsv" target="_blank">1️⃣ 老牌机场 1 点击注册</a>
-            <a class="airport-btn" style="background:#555" href="http://www.fb2026.cc/#/register?code=TuoTBZxP" target="_blank">2️⃣ 老牌机场 2 点击注册</a>
-          </div>
-        </div>
-      </div>
-
-      <!-- 右列：操作步骤 -->
-      <div>
-        <div class="notice-col"><h4>操作步骤</h4></div>
-        <div id="tutorial-steps">
-          <div class="notice-step"><div class="step-num">1</div><div class="step-text">打开 <strong>App Store</strong>，点右上角头像，下滑到底部点「退出登录」</div></div>
-          <div class="notice-step"><div class="step-num">2</div><div class="step-text">复制下方账号密码，在 App Store 登录界面输入</div></div>
-          <div class="notice-step"><div class="step-num">3</div><div class="step-text">弹出安全提示：点 <strong>「其他选项」→「不升级」</strong> <span style="color:var(--red);font-weight:700">千万不要点升级！</span></div></div>
-          <div class="notice-step"><div class="step-num">4</div><div class="step-text">搜索需要的 App，直接点下载</div></div>
-          <div class="notice-step"><div class="step-num">5</div><div class="step-text">下载完成后立即 <strong>退出共享账号</strong>，换回自己的 Apple ID 🎉</div></div>
-        </div>
-        <!-- 教程图 -->
-        <img
-          src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/tutorial.png"
-          style="width:100%;border-radius:10px;display:block;margin-top:12px;cursor:pointer"
-          alt="使用教程"
-          onclick="window.open(this.src)"
-          onerror="this.style.display='none'"
-        />
-        <img
-          src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/2fa.png"
-          style="width:100%;border-radius:10px;display:block;margin-top:8px"
-          alt="双重认证操作"
-          onerror="this.style.display='none'"
-        />
-        <div style="font-size:11px;color:var(--t3);text-align:center;margin-top:6px">点击图片可放大查看 · 版权归原作者所有</div>
-      </div>
+    <div class="warn warn-o">
+      <span style="font-size:16px;flex-shrink:0">🟠</span>
+      <span class="warn-txt"><strong>重要提示！</strong>登录时若弹出「Apple ID 安全性」页面，必须点最下方<strong>「其他选项」→「不要升级」</strong>，切勿点击「继续」或「升级账号安全」！</span>
+    </div>
+    <div class="warn warn-b">
+      <span style="font-size:16px;flex-shrink:0">🔵</span>
+      <span class="warn-txt"><strong>使用提示：</strong>账号每小时自动更新，失效请刷新页面。账号内已购买部分应用，提示付费可直接点下载。下载完成后请立即退出共享账号。</span>
     </div>
   </div>
 
-  <!-- 工具栏 -->
+  <!-- 购买警告 + 机场推荐 -->
+  <div class="notice-block">
+    <h3>📢 购买警告 &amp; 机场推荐</h3>
+    <div class="purchase-warn">
+      <strong>购买警告：</strong>本商品只是临时租借账号给你用于下载App，至于App你是否会使用以及App内是否需要额外购买服务等与本站无关，本站不教App使用和提供服务！<br>
+      <strong>额外提醒：</strong>TikTok和Shadowrocket都不是下载就能直接使用的，TikTok有锁区规则，Shadowrocket需要自备节点服务器，同时这两个App都需要iOS 12以上系统，如果不会使用请勿购买；好比你用本站苹果账号下载炒股软件我不可能还得教你炒股？<br>
+      使用 Shadowrocket 还需要搭配机场节点服务，推荐以下老牌机场👇
+    </div>
+    <div class="airport-row">
+      <span class="airport-label">🛫 推荐机场：</span>
+      <a class="airport-btn" href="https://aff.v2ny.mom?path=register&code=iEwQYZsv" target="_blank" rel="noopener">1️⃣ 老牌机场 1 点击注册</a>
+      <a class="airport-btn b2" href="http://www.fb2026.cc/#/register?code=TuoTBZxP" target="_blank" rel="noopener">2️⃣ 老牌机场 2 点击注册</a>
+    </div>
+  </div>
+
+  <!-- 搜索栏 -->
   <div class="toolbar">
-    <div class="search-box">
-      <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input id="searchInput" type="text" placeholder="搜索邮箱关键词…" oninput="onFilter()"/>
+    <div class="sbox">
+      <svg class="si" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input id="searchInput" type="text" placeholder="搜索邮箱…" oninput="onFilter()"/>
     </div>
-    <span class="count-label" id="countLabel"></span>
+    <span class="cnt-lbl" id="cntLbl"></span>
   </div>
 
   <!-- 账号网格 -->
@@ -458,6 +351,7 @@ footer{text-align:center;padding:24px;font-size:12px;color:var(--t3)}
   </div>
   <div class="pager" id="pager"></div>
 
+</div>
 </main>
 
 <footer id="footer"></footer>
@@ -465,35 +359,35 @@ footer{text-align:center;padding:24px;font-size:12px;color:var(--t3)}
 <script>
 const DATA_URL  = 'https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/apple_ids.json';
 const STORE_URL = 'https://apps.apple.com/us/app/shadowrocket/id932747118?l=zh-Hans-CN';
-const PAGE_SIZE = 18;
+const PAGE_SIZE = 24;
+let all=[],filtered=[],page=1,pvs={},tipTimers={};
 
-let all=[], filtered=[], page=1, pwdVis={};
-
-/* ══ 答题 ══ */
-function quizAnswer(correct){
-  if(correct){
-    const ov=document.getElementById('quiz-overlay');
-    ov.style.animation='fadeOut .3s ease forwards';
-    const s=document.createElement('style');
-    s.textContent='@keyframes fadeOut{to{opacity:0;pointer-events:none}}';
-    document.head.appendChild(s);
-    setTimeout(()=>ov.style.display='none',300);
-  } else {
-    const w=document.getElementById('quiz-wrong');
-    w.classList.remove('show'); void w.offsetWidth; w.classList.add('show');
-  }
+/* ══ 答题流程 ══ */
+function quizWrong(){
+  const w=document.getElementById('quiz-wrong');
+  w.classList.remove('show'); void w.offsetWidth; w.classList.add('show');
 }
-function showTutorial(){
-  quizAnswer(true);
-  setTimeout(()=>{
-    document.querySelector('.notice-section').scrollIntoView({behavior:'smooth',block:'start'});
-  },400);
+function quizCorrect(){ showStep('step-tut'); }
+function goTutorial(){ showStep('step-tut'); }
+function goStep2FA(){ showStep('step-2fa'); }
+function goMain(){
+  const ov=document.getElementById('overlay');
+  ov.style.transition='opacity .35s';
+  ov.style.opacity='0';
+  setTimeout(()=>{ ov.style.display='none'; },350);
+}
+function showStep(id){
+  ['step-quiz','step-tut','step-2fa'].forEach(s=>document.getElementById(s).style.display='none');
+  document.getElementById(id).style.display='block';
+  const box=document.getElementById('ov-box');
+  box.style.animation='none'; void box.offsetWidth;
+  box.style.animation='popIn .28s cubic-bezier(.34,1.4,.64,1) both';
 }
 
 /* ══ 主题 ══ */
 function initTheme(){
   const s=localStorage.getItem('aid-theme');
-  const p=window.matchMedia('(prefers-color-scheme:light)').matches?'light':'dark';
+  const p=matchMedia('(prefers-color-scheme:light)').matches?'light':'dark';
   applyTheme(s||p,false);
 }
 function applyTheme(t,save=true){
@@ -510,111 +404,103 @@ async function loadData(){
   document.getElementById('grid').innerHTML='<div class="empty"><div class="spin"></div>正在加载…</div>';
   document.getElementById('pager').innerHTML='';
   try{
-    const res=await fetch(DATA_URL+'?_='+Date.now());
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    init(await res.json());
+    const r=await fetch(DATA_URL+'?_='+Date.now());
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    init(await r.json());
   }catch(e){
     document.getElementById('grid').innerHTML=
-      '<div class="empty">⚠️ 数据加载失败，请刷新重试<br><small style="color:var(--t3);margin-top:6px;display:block">'+e+'</small></div>';
+      '<div class="empty">⚠️ 数据加载失败，请刷新重试<br><small style="color:var(--t3);margin-top:8px;display:block">'+e+'</small></div>';
   }
 }
-
 function init(data){
   all=(data.accounts||[]).sort((a,b)=>{
     const ta=a.checked_at||a.updated_at||'';
     const tb=b.checked_at||b.updated_at||'';
     return tb.localeCompare(ta);
   });
-  document.getElementById('hTotal').textContent=data.total||0;
-  const t=data.generated_at?new Date(data.generated_at):null;
-  document.getElementById('footer').textContent=t?'数据更新于 '+t.toLocaleString('zh-CN'):'';
-  page=1; pwdVis={};
+  document.getElementById('hTotal').textContent=data.total||all.length;
+  const t=data.generated_at;
+  document.getElementById('footer').textContent=t?'数据更新于 '+t+' (北京时间)':'';
+  page=1; pvs={};
   applyFilter();
 }
-
 function onFilter(){ page=1; applyFilter(); }
 function applyFilter(){
   const q=document.getElementById('searchInput').value.trim().toLowerCase();
   filtered=q?all.filter(a=>a.email.includes(q)):[...all];
-  document.getElementById('countLabel').textContent=filtered.length+'个';
+  document.getElementById('cntLbl').textContent=filtered.length+'个';
   render();
 }
 
 /* ══ 渲染 ══ */
 function render(){
-  const start=(page-1)*PAGE_SIZE;
-  const rows=filtered.slice(start,start+PAGE_SIZE);
-  const grid=document.getElementById('grid');
-
+  const s=(page-1)*PAGE_SIZE, rows=filtered.slice(s,s+PAGE_SIZE);
+  const g=document.getElementById('grid');
   if(!rows.length){
-    grid.innerHTML='<div class="empty">😕 没有找到匹配的账号</div>';
-    document.getElementById('pager').innerHTML='';
-    return;
+    g.innerHTML='<div class="empty">😕 没有找到匹配的账号</div>';
+    document.getElementById('pager').innerHTML='';return;
   }
-
-  grid.innerHTML=rows.map((a,i)=>{
-    const idx=start+i;
-    const vis=pwdVis[idx];
-    const pwdHtml=vis
-      ?`<span class="field-val mono">${esc(a.password)}</span>`
-      :`<span class="pwd-dots">••••••••</span>`;
-    const timeStr=a.checked_at||(a.updated_at
-      ?new Date(a.updated_at).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'');
-
-    return `
-    <div class="id-card">
-      <div class="card-top">
-        <span class="card-num">#${idx+1}</span>
-        <span class="s-ok"><span class="dot"></span>正常</span>
-        ${timeStr?`<span class="card-time">${esc(timeStr)}</span>`:''}
-      </div>
-      <div class="card-field">
-        <span class="field-label">账号</span>
-        <span class="field-val" title="${esc(a.email)}">${esc(a.email)}</span>
-      </div>
-      <div class="card-field">
-        <span class="field-label">密码</span>
-        ${pwdHtml}
-        <button class="eye-btn" onclick="togglePwd(${idx})">${vis?'🙈':'👁'}</button>
-      </div>
-      <div class="card-btns">
-        <button class="cbtn cbtn-acc" onclick="copyField('${esc(a.email)}','acc',this,${idx})">复制账号</button>
-        <button class="cbtn cbtn-pwd" onclick="copyField('${esc(a.password)}','pwd',this,${idx})">复制密码</button>
-      </div>
-      <div class="store-tip" id="tip-${idx}">
-        ✅ 密码已复制！登录 App Store 后点击下方链接下载小火箭：<br>
-        <a href="${STORE_URL}" target="_blank">👉 前往 App Store 下载 Shadowrocket</a>
-      </div>
-      <div class="card-rocket">🚀 如此账号未购买小火箭，请更换其他账号重试</div>
-    </div>`;
+  g.innerHTML=rows.map((a,i)=>{
+    const idx=s+i;
+    const ok=['正常','正常使用','可用','normal','ok',''].includes((a.status||'').toLowerCase().trim());
+    const sbadge=ok
+      ?`<span class="s-ok"><span class="dot"></span>正常</span>`
+      :`<span class="s-err"><span class="dot"></span>${esc(a.status||'异常')}</span>`;
+    const ts=a.checked_at||(a.updated_at||'');
+    const vis=pvs[idx];
+    const pdisplay=vis?`<span class="cv mono">${esc(a.password)}</span>`:`<span class="pdots">••••••••</span>`;
+    return `<div class="id-card">
+  <div class="ct">
+    <span class="cn">#${idx+1}</span>${sbadge}
+    ${ts?`<span class="ctime">${esc(ts)}</span>`:''}
+  </div>
+  <div class="cf">
+    <span class="cl">账号</span>
+    <span class="cv" title="${esc(a.email)}">${esc(a.email)}</span>
+  </div>
+  <div class="cf">
+    <span class="cl">密码</span>${pdisplay}
+    <button class="eyebtn" onclick="tpwd(${idx})">${vis?'🙈':'👁'}</button>
+  </div>
+  <div class="cbtns">
+    <button class="cbtn cbtn-a" onclick="cp('${esc(a.email)}','a',this,${idx})">复制账号</button>
+    <button class="cbtn cbtn-p" onclick="cp('${esc(a.password)}','p',this,${idx})">复制密码</button>
+  </div>
+  <div class="rocket-tip">⚠️ 如此账号未购买小火箭，请更换其他账号重试</div>
+  <div class="store-tip" id="st-${idx}">
+    ✅ 密码已复制！登录 App Store 后点击跳转下载小火箭：<br>
+    <a href="${STORE_URL}" target="_blank">👉 前往 App Store 下载 Shadowrocket</a>
+  </div>
+</div>`;
   }).join('');
-
   renderPager();
 }
 
-let tipTimers={};
-function copyField(text, type, btn, idx){
-  if(!navigator.clipboard){
-    // fallback
-    const ta=document.createElement('textarea');
-    ta.value=text; document.body.appendChild(ta); ta.select();
-    document.execCommand('copy'); document.body.removeChild(ta);
-    showCopyFeedback(btn, type, idx);
-    return;
-  }
-  navigator.clipboard.writeText(text).then(()=>showCopyFeedback(btn, type, idx));
-}
-function showCopyFeedback(btn, type, idx){
-  const orig=btn.textContent;
-  btn.textContent='✓ 已复制'; btn.classList.add('ok');
-  setTimeout(()=>{ btn.textContent=orig; btn.classList.remove('ok'); },1800);
-  if(type==='pwd'){
-    const tip=document.getElementById('tip-'+idx);
-    if(tip){ tip.classList.add('show'); clearTimeout(tipTimers[idx]); tipTimers[idx]=setTimeout(()=>tip.classList.remove('show'),20000); }
-  }
-}
+function tpwd(idx){ pvs[idx]=!pvs[idx]; render(); }
 
-function togglePwd(idx){ pwdVis[idx]=!pwdVis[idx]; render(); }
+function cp(text,type,btn,idx){
+  const orig=btn.textContent;
+  const doFeedback=()=>{
+    btn.textContent='✓ 已复制'; btn.classList.add('ok');
+    setTimeout(()=>{ btn.textContent=orig; btn.classList.remove('ok'); },1800);
+    if(type==='p'){
+      const t=document.getElementById('st-'+idx);
+      if(t){ t.classList.add('show'); clearTimeout(tipTimers[idx]); tipTimers[idx]=setTimeout(()=>t.classList.remove('show'),20000); }
+    }
+  };
+  if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(doFeedback).catch(()=>{ fallbackCopy(text); doFeedback(); });
+  } else {
+    fallbackCopy(text); doFeedback();
+  }
+}
+function fallbackCopy(text){
+  const ta=document.createElement('textarea');
+  ta.value=text; ta.style.cssText='position:fixed;opacity:0;top:0;left:0';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try{ document.execCommand('copy'); }catch(e){}
+  document.body.removeChild(ta);
+}
 
 function renderPager(){
   const total=Math.ceil(filtered.length/PAGE_SIZE);
@@ -632,7 +518,7 @@ function renderPager(){
 function go(p){
   const t=Math.ceil(filtered.length/PAGE_SIZE);
   if(p<1||p>t)return;
-  page=p; pwdVis={}; render();
+  page=p; pvs={}; render();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -640,9 +526,7 @@ function esc(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-initTheme();
-loadData();
-setInterval(loadData,5*60*1000);
+initTheme(); loadData(); setInterval(loadData,5*60*1000);
 </script>
 </body>
 </html>

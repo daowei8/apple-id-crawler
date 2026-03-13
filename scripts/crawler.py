@@ -800,77 +800,241 @@ def crawl_app_iosr_cn(driver):
     return dedup(results)
 
 
-# ──────────────────────────────────────────
-# 139.196.183.52/share/DZhBvnglEU
-# ──────────────────────────────────────────
-def crawl_ip_share(driver):
-    driver.get("http://139.196.183.52/share/DZhBvnglEU")
-    time.sleep(6)
-    close_popups(driver)
-    scroll(driver)
-
-    # 点显示密码按钮
+# ──────────────────────────────────────────────────────────────────
+# Cloudflare 邮件解码工具
+# 该站点使用 Cloudflare 邮件保护，邮箱被编码为 data-cfemail 属性
+# ──────────────────────────────────────────────────────────────────
+def decode_cfemail(encoded: str) -> str:
+    """解码 Cloudflare data-cfemail 属性"""
     try:
-        btns = driver.find_elements(By.XPATH,
-            "//button[contains(.,'复制密码')]|//button[contains(.,'查看密码')]|//button[contains(.,'显示密码')]")
-        for btn in btns[:20]:
+        enc = bytes.fromhex(encoded)
+        key = enc[0]
+        return "".join(chr(b ^ key) for b in enc[1:])
+    except Exception:
+        return ""
+
+
+def parse_clipboard_site(html: str, source_url: str = "") -> list:
+    """
+    解析使用 data-clipboard-text 按钮 + Cloudflare 邮件保护的账号分享页面。
+    适用于 139.196.183.52/share/* 系列以及同类框架搭建的站点。
+
+    策略：
+    1. 找每张账号卡片（card-body）
+    2. 账号：优先读 copy-btn 的 data-clipboard-text，其次解码 __cf_email__
+    3. 密码：读 copy-pass-btn 的 data-clipboard-text
+    4. 状态：读 badge 文字，跳过异常账号
+    5. 检查时间：读"上次检查"文字
+    """
+    soup = BeautifulSoup(html, "lxml")
+    results = []
+
+    # 找所有账号卡片：card-body 是最通用的容器
+    cards = soup.select(".card-body")
+    if not cards:
+        # 降级：找所有含复制按钮的父容器
+        cards = []
+        for btn in soup.select("[data-clipboard-text]"):
+            parent = btn.find_parent(class_=lambda c: c and "col" in c)
+            if parent and parent not in cards:
+                cards.append(parent)
+
+    for card in cards:
+        # ── 提取邮箱 ──
+        email = ""
+        # 方法1：copy-btn 的 data-clipboard-text（最可靠）
+        copy_btn = card.select_one(".copy-btn, [id^='username_']")
+        if copy_btn:
+            email = copy_btn.get("data-clipboard-text", "").strip().lower()
+
+        # 方法2：解码 Cloudflare 保护的邮箱
+        if not email or "@" not in email:
+            cf = card.select_one(".__cf_email__")
+            if cf:
+                encoded = cf.get("data-cfemail", "")
+                email = decode_cfemail(encoded).lower()
+
+        # 方法3：正则从文本中提取（兜底）
+        if not email or "@" not in email:
+            text = card.get_text(" ", strip=True)
+            m = EMAIL_RE.search(text)
+            if m:
+                email = m.group().lower()
+
+        if not email or "@" not in email:
+            continue
+
+        # ── 提取密码 ──
+        password = ""
+        pass_btn = card.select_one(".copy-pass-btn, [id^='password_']")
+        if pass_btn:
+            password = pass_btn.get("data-clipboard-text", "").strip()
+
+        if not password or len(password) < 4:
+            continue
+
+        # ── 提取状态 ──
+        status = "正常"
+        badge = card.select_one(".badge")
+        if badge:
+            status = badge.get_text(strip=True)
+        if bad(status):
+            logger.debug(f"  跳过异常账号: {email} 状态={status}")
+            continue
+
+        # ── 提取检查时间 ──
+        checked_at = ""
+        card_text = card.get_text(" ", strip=True)
+        mt = re.search(r"上次检查[：:\s]*(20\d{2}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?)", card_text)
+        if mt:
+            checked_at = mt.group(1)
+
+        # ── 提取国家 ──
+        country = ""
+        mc = re.search(COUNTRY_RE, card_text)
+        if mc:
+            country = mc.group(1)
+
+        results.append({
+            "email": email,
+            "password": password,
+            "status": "正常",
+            "checked_at": checked_at,
+            "country": country,
+        })
+
+    return results
+
+
+def crawl_clipboard_site(driver, url: str, site_name: str = "") -> list:
+    """
+    通用爬虫：适用于所有使用 data-clipboard-text 按钮的账号分享站点。
+    支持多页（如有分页则自动翻页）。
+    """
+    logger.info(f"  [clipboard_site] 加载: {url}")
+    driver.get(url)
+    time.sleep(5)
+    close_popups(driver)
+    scroll(driver, n=6)
+
+    all_results = []
+    visited_pages = set()
+    page_num = 0
+
+    while True:
+        current_url = driver.current_url
+        if current_url in visited_pages:
+            break
+        visited_pages.add(current_url)
+        page_num += 1
+
+        html = driver.page_source
+        page_results = parse_clipboard_site(html, current_url)
+        logger.info(f"    第{page_num}页: 解析到 {len(page_results)} 条账号")
+        all_results.extend(page_results)
+
+        # 尝试翻页
+        next_btn = None
+        for selector in ["a[rel='next']", ".pagination .next a", "a:contains('下一页')",
+                          "//a[contains(.,'下一页') or contains(.,'Next') or contains(.,'›')]"]:
             try:
-                driver.execute_script("arguments[0].click();", btn)
-                time.sleep(0.4)
+                if selector.startswith("//"):
+                    elems = driver.find_elements(By.XPATH, selector)
+                else:
+                    elems = driver.find_elements(By.CSS_SELECTOR, selector)
+                if elems:
+                    next_btn = elems[0]
+                    break
             except Exception:
                 pass
-        time.sleep(1)
-    except Exception:
-        pass
 
-    results = click_all_copy_btns(driver)
-
-    if not results:
+        if not next_btn:
+            break
         try:
-            data = driver.execute_script(r"""
-var out=[], seen={};
-document.querySelectorAll('[class]').forEach(function(card){
-    var t=card.innerText||card.textContent||'';
-    var em=t.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}/i);
-    if(!em) return;
-    var e=em[0].toLowerCase();
-    if(seen[e]) return;
-    var inp=card.querySelector('input');
-    var pwd=inp?(inp.value||''):'';
-    if(!pwd||pwd.length<5){
-        var spans=card.querySelectorAll('span,p,div,td');
-        for(var i=0;i<spans.length;i++){
-            var sv=spans[i].innerText||'';
-            if(sv&&sv.length>=5&&sv.length<=32&&!sv.includes('@')&&!/^20\d{2}/.test(sv)){
-                pwd=sv.trim(); break;
-            }
-        }
-    }
-    var mt=t.match(/上次检查[:：\s]*(20\d{2}-\d{2}-\d{2} \d{2}:\d{2})/);
-    var ms=t.match(/(正常|解锁成功|可用)/);
-    if(pwd&&pwd.length>=5&&ms){
-        seen[e]=1;
-        out.push({email:e,pwd:pwd,time:mt?mt[1]:''});
-    }
-});
-return out;
-            """)
-            seen = set()
-            for d in (data or []):
-                e = (d.get("email") or "").lower()
-                p = (d.get("pwd") or "").strip()
-                if e and p and "@" in e and len(p) >= 5 and e not in seen:
-                    seen.add(e)
-                    results.append({"email": e, "password": p, "status": "正常",
-                                    "checked_at": d.get("time", ""), "country": ""})
-        except Exception as ex:
-            logger.warning(f"  ip_share JS: {ex}")
+            driver.execute_script("arguments[0].click();", next_btn)
+            time.sleep(3)
+        except Exception:
+            break
 
-    if not results:
-        results = js_full_scan(driver)
-    if not results:
-        results = from_inputs(driver) or generic_parse(driver)
-    return dedup(results)
+    return dedup(all_results)
+
+
+# ──────────────────────────────────────────────────────────────────
+# 139.196.183.52 系列（已知页面 + 自动发现同域其他分享页）
+# ──────────────────────────────────────────────────────────────────
+IP_SHARE_URLS = [
+    "http://139.196.183.52/share/DZhBvnglEU",
+    # 可在此追加同域其他分享 URL，爬虫也会从首页自动发现
+]
+
+def crawl_ip_share(driver) -> list:
+    """
+    抓取 139.196.183.52 账号分享站。
+    1. 先尝试直接请求（requests，速度快）
+    2. requests 拿到的 HTML 就用 parse_clipboard_site 解析
+    3. 若解析结果为空则用 Selenium 兜底
+    4. 自动从首页或已知路径探测更多分享页面
+    """
+    all_results = []
+    discovered_urls = set(IP_SHARE_URLS)
+
+    # ── 步骤1：requests 快速抓取已知 URL ──
+    for url in list(discovered_urls):
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=15)
+            resp.encoding = "utf-8"
+            if resp.status_code == 200:
+                results = parse_clipboard_site(resp.text, url)
+                logger.info(f"  [requests] {url} → {len(results)} 条")
+                if results:
+                    all_results.extend(results)
+                    continue
+            # requests 失败或结果为空 → Selenium 兜底
+        except Exception as ex:
+            logger.warning(f"  [requests] {url} 失败: {ex}")
+
+        # Selenium 兜底
+        try:
+            results = crawl_clipboard_site(driver, url, "139.196.183.52")
+            logger.info(f"  [selenium] {url} → {len(results)} 条")
+            all_results.extend(results)
+        except Exception as ex:
+            logger.error(f"  [selenium] {url} 异常: {ex}")
+
+    # ── 步骤2：尝试自动发现首页上的其他分享链接 ──
+    try:
+        index_urls = [
+            "http://139.196.183.52/",
+            "http://139.196.183.52/share",
+        ]
+        for idx_url in index_urls:
+            try:
+                resp = requests.get(idx_url, headers=HEADERS, timeout=10)
+                if resp.status_code != 200:
+                    continue
+                soup = BeautifulSoup(resp.text, "lxml")
+                for a in soup.find_all("a", href=True):
+                    href = a["href"]
+                    if "/share/" in href:
+                        full = href if href.startswith("http") else f"http://139.196.183.52{href}"
+                        if full not in discovered_urls:
+                            discovered_urls.add(full)
+                            logger.info(f"  [发现新页面] {full}")
+                            try:
+                                r2 = requests.get(full, headers=HEADERS, timeout=15)
+                                r2.encoding = "utf-8"
+                                if r2.status_code == 200:
+                                    new_results = parse_clipboard_site(r2.text, full)
+                                    logger.info(f"    → {len(new_results)} 条")
+                                    all_results.extend(new_results)
+                            except Exception as ex2:
+                                logger.warning(f"    新页面失败: {ex2}")
+            except Exception:
+                pass
+    except Exception as ex:
+        logger.warning(f"  首页探测失败: {ex}")
+
+    return dedup(all_results)
 
 
 SITES = [

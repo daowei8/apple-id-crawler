@@ -27,7 +27,9 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Te
 
 /* OVERLAY */
 #overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.88);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);display:flex;align-items:center;justify-content:center;padding:16px;transition:opacity .3s}
-.ov-box{background:var(--bg2);border:.5px solid var(--border-h);border-radius:24px;padding:0;max-width:480px;width:100%;overflow:hidden;animation:popIn .35s cubic-bezier(.34,1.4,.64,1) both}
+.ov-box{background:var(--bg2);border:.5px solid var(--border-h);border-radius:24px;padding:0;max-width:480px;width:100%;animation:popIn .35s cubic-bezier(.34,1.4,.64,1) both;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+#step-quiz{flex-shrink:0}
+.tut-step{display:none;flex-direction:column;flex:1;min-height:0}
 @keyframes popIn{from{opacity:0;transform:scale(.82) translateY(20px)}to{opacity:1;transform:none}}
 
 /* 步骤1 答题 */
@@ -50,19 +52,30 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Te
 
 /* 步骤2/3 教程图片 */
 #step-tut,#step-2fa{display:none}
-.tut-header{padding:16px 20px 0;text-align:center}
-.tut-header h3{font-size:17px;font-weight:700;margin-bottom:3px}
-.tut-header p{font-size:12px;color:var(--t2)}
-.tut-img-wrap{padding:12px 16px;max-height:52vh;overflow-y:auto}
-.tut-img-wrap img{width:100%;border-radius:12px;display:block;min-height:80px;background:var(--card)}
+.tut-header{padding:14px 20px 10px;text-align:center;flex-shrink:0}
+.tut-header h3{font-size:17px;font-weight:700;margin-bottom:2px;white-space:nowrap}
+.tut-header p{font-size:12px;color:var(--t2);white-space:nowrap}
+/* 图片区：全尺寸，可滚动 */
+.tut-img-wrap{padding:0 14px 10px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
+.tut-img-wrap img{width:100%;height:auto;display:block;border-radius:10px;cursor:zoom-in;background:var(--card)}
 .img-placeholder{background:var(--card);border-radius:12px;padding:28px 16px;text-align:center;color:var(--t3);font-size:13px;line-height:1.8}
-.tut-footer{padding:0 16px 16px;display:flex;flex-direction:column;gap:8px}
-.tut-note{font-size:12px;color:var(--orange);text-align:center;line-height:1.4;padding:7px 10px;background:rgba(255,159,10,.08);border-radius:8px;border:.5px solid rgba(255,159,10,.2)}
+.tut-footer{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.tut-note{font-size:11.5px;color:var(--orange);text-align:center;line-height:1.4;padding:7px 10px;background:rgba(255,159,10,.08);border-radius:8px;border:.5px solid rgba(255,159,10,.2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tut-note.red{color:#ff6060;background:rgba(255,69,58,.08);border-color:rgba(255,69,58,.2)}
+@media(max-width:480px){
+  .tut-note{white-space:normal;font-size:11px}
+  .tut-header h3{white-space:normal;font-size:15px}
+  .tut-header p{white-space:normal}
+}
 .know-btn{width:100%;border:none;border-radius:980px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
 .know-btn:active{transform:scale(.97)}
 .know-btn-blue{background:var(--blue);color:#fff}.know-btn-blue:hover{opacity:.88}
 .know-btn-green{background:var(--green);color:#fff}.know-btn-green:hover{opacity:.88}
+
+/* 图片放大灯箱 */
+#img-lb{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);align-items:center;justify-content:center;padding:16px;cursor:zoom-out}
+#img-lb.open{display:flex}
+#img-lb img{max-width:100%;max-height:90vh;border-radius:12px;object-fit:contain;animation:popIn .22s ease both}
 
 /* NAV */
 nav{position:sticky;top:0;z-index:100;height:52px;background:var(--nav-bg);backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);border-bottom:.5px solid var(--border);display:flex;align-items:center;padding:0 18px;gap:10px}
@@ -225,14 +238,15 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
     </div>
 
     <!-- 步骤2：登录教程图 -->
-    <div id="step-tut">
+    <div id="step-tut" class="tut-step">
       <div class="tut-header">
         <h3>📖 App Store 登录教程</h3>
-        <p>请仔细阅读，避免误登 iCloud 导致锁机</p>
+        <p>请仔细阅读，点击图片可放大</p>
       </div>
       <div class="tut-img-wrap">
         <img src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/tutorial.png"
              alt="登录教程"
+             onclick="openLb(this.src)"
              onerror="this.style.display='none';document.getElementById('tut-ph').style.display='block'"/>
         <div id="tut-ph" class="img-placeholder" style="display:none">
           📷 教程图片加载失败，请上传 <code>guide/tutorial.png</code><br><br>
@@ -246,7 +260,7 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
     </div>
 
     <!-- 步骤3：2FA 说明 -->
-    <div id="step-2fa">
+    <div id="step-2fa" class="tut-step">
       <div class="tut-header">
         <h3>🔐 双重认证处理方法</h3>
         <p>登录时遇到此界面，必须按以下操作</p>
@@ -254,6 +268,7 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
       <div class="tut-img-wrap">
         <img src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/2fa.png"
              alt="双重认证教程"
+             onclick="openLb(this.src)"
              onerror="this.style.display='none';document.getElementById('tfa-ph').style.display='block'"/>
         <div id="tfa-ph" class="img-placeholder" style="display:none">
           📷 2FA图片加载失败，请上传 <code>guide/2fa.png</code><br><br>
@@ -268,6 +283,11 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
     </div>
 
   </div>
+</div>
+
+<!-- 图片灯箱 -->
+<div id="img-lb" onclick="closeLb()">
+  <img id="lb-img" src="" alt="放大图"/>
 </div>
 
 <!-- NAV -->
@@ -325,8 +345,8 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
     <h3><span>📋</span> 使用须知 &amp; 操作教程</h3>
     <div class="pw">
       <strong>⚠️ 购买警告：</strong>本站只是临时借账号给你用于<strong>下载 App</strong>，至于 App 你是否会使用以及 App 内是否需要额外购买服务等与本站无关，<strong>本站不教 App 使用和提供服务！</strong><br><br>
-      额外提醒：<span class="hl">TikTok 和 Shadowrocket 都不是下载就能直接使用的</span>，TikTok 有锁区规则，Shadowrocket 需<strong>自备节点服务器</strong>，同时这两个 App 都需要 iOS 12 以上系统，如果不会使用请可购买下方机场，机场里有使用教程！还不会可联系TG：frankoz411 ，付费一对一！ <br><br>
-      <span class="hl">使用 Shadowrocket 还需要搭配机场节点，推荐以下老牌机场👇</span>
+      额外提醒：<span class="hl">TikTok 和 Shadowrocket 都不是下载就能直接使用的</span>，TikTok 有锁区规则，Shadowrocket 需<strong>自备节点服务器</strong>，同时这两个 App 都需要 iOS 12 以上系统，如果不会使用请可购买下方机场，机场里有使用教程！还不会可联系TG：frankoz411，付费一对一！<br><br>
+      <span class="hl">使用 Shadowrocket 还需要搭配节点，推荐以下老牌机场👇</span>
     </div>
     <div class="airport-links">
       <a class="alink" href="https://aff.v2ny.mom?path=register&code=iEwQYZsv" target="_blank" rel="noopener">✈️ 老牌机场 1️⃣</a>
@@ -373,11 +393,28 @@ function goMain(){
   setTimeout(()=>{ov.style.display='none';},350);
 }
 function showStep(id){
-  ['step-quiz','step-tut','step-2fa'].forEach(s=>document.getElementById(s).style.display='none');
-  document.getElementById(id).style.display='block';
+  ['step-quiz','step-tut','step-2fa'].forEach(s=>{
+    const el=document.getElementById(s);
+    el.style.display='none';
+  });
+  const target=document.getElementById(id);
+  // 步骤2/3用flex撑满高度，步骤1用block
+  target.style.display=(id==='step-tut'||id==='step-2fa')?'flex':'block';
+  if(id==='step-tut'||id==='step-2fa') target.style.flexDirection='column';
   const box=document.getElementById('ov-box');
   box.style.animation='none';void box.offsetWidth;
   box.style.animation='popIn .28s cubic-bezier(.34,1.4,.64,1) both';
+}
+
+/* 灯箱 */
+function openLb(src){
+  document.getElementById('lb-img').src=src;
+  document.getElementById('img-lb').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeLb(){
+  document.getElementById('img-lb').classList.remove('open');
+  document.body.style.overflow='';
 }
 
 function initTheme(){

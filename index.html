@@ -4,6 +4,8 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>共享 Apple ID · 小火箭账号</title>
+<link rel="icon" type="image/png" href="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/logo.png"/>
+<link rel="apple-touch-icon" href="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/logo.png"/>
 <style>
 :root{
   --bg:#000;--bg2:#111;
@@ -171,9 +173,9 @@ main{padding:0 0 80px}
 /* 小火箭提示 */
 .rocket-tip{font-size:11.5px;color:var(--orange);background:rgba(255,159,10,.07);border:.5px solid rgba(255,159,10,.2);border-radius:8px;padding:6px 10px;line-height:1.5;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .rocket-tip-text{flex:1;min-width:0}
-.buy-id-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;background:rgba(255,159,10,.18);color:var(--orange);border:.5px solid rgba(255,159,10,.35);transition:opacity .15s;flex-shrink:0}
+.buy-id-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;background:rgba(0,113,227,.18);color:#5aabff;border:.5px solid rgba(0,113,227,.35);transition:opacity .15s;flex-shrink:0}
 .buy-id-btn:hover{opacity:.78}
-[data-theme=light] .buy-id-btn{background:rgba(180,100,0,.1);color:#8a4800;border-color:rgba(180,100,0,.25)}
+[data-theme=light] .buy-id-btn{background:rgba(0,80,180,.1);color:#0055b0;border-color:rgba(0,80,180,.25)}
 /* 密码复制后提示 */
 .store-tip{display:none;padding:8px 10px;border-radius:9px;background:rgba(0,113,227,.1);border:.5px solid rgba(0,113,227,.28);font-size:12px;color:#5aabff;line-height:1.6;animation:fadeUp .3s ease both}
 [data-theme=light] .store-tip{color:#0055b0}
@@ -302,7 +304,6 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
 <!-- NAV -->
 <nav>
   <div class="nav-logo">
-    <img id="nav-logo-img" src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/logo.png" alt="logo" style="width:22px;height:22px;object-fit:contain;border-radius:5px;flex-shrink:0" onerror="this.style.display='none'"/>
     共享 Apple ID
   </div>
   <div class="nav-cnt">共 <b id="hTotal">-</b> 个账号</div>
@@ -511,7 +512,7 @@ function render(){
     <button class="cbtn cbtn-p" onclick="cp('${esc(a.password)}','p',this,${idx})">复制密码</button>
   </div>
   <div class="rocket-tip">
-    <span class="rocket-tip-text">⚠️ 如账号锁定不可用，请更换其他账号重试</span>
+    <span class="rocket-tip-text">⚠️ 如锁定不可用，请更换其他重试</span>
     <a class="buy-id-btn" href="javascript:void(0)" onclick="openBuyId()">🔑 独享ID</a>
   </div>
   <div class="store-tip" id="st-${idx}">

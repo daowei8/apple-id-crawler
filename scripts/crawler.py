@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-Apple ID 共享账号爬虫 v5
-- 每个站点多套解析策略，互为兜底
-- 国家信息精确提取（不再默认美国）
-- 速度优化：requests 优先，Selenium 按需
-- 同邮箱保留最新密码，不丢弃
+Apple ID 共享账号爬虫 v6
+策略：
+- btvda/bocchi2b/idshare001/idfree/shadowrocket/free.iosapp/app.iosr → click_all_copy_btns（剪贴板钩子）+ 修复版 enrich_country_time
+- ccbaohe/tkbaohe → strategy_mailto_onclick（mailto href + onclick copy()）
+- 139.196.183.52 → strategy_data_clipboard（data-clipboard-text）
+- 各站点都有多层兜底
+- 国家/时间精确提取，不再默认美国
 """
 
 import re, json, time, hashlib, logging, os
@@ -41,6 +43,7 @@ EMAIL_RE = re.compile(
     re.IGNORECASE)
 
 EMAIL_ANY = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}", re.IGNORECASE)
+EMAIL_BROAD = r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}"
 
 STATUS_BAD = {"异常", "不可用", "失效", "已失效", "暂无可用", "unavailable",
               "invalid", "error", "失效账号", "暂无", "locked"}
@@ -67,7 +70,6 @@ def now_cst():
 
 
 def decode_cfemail(encoded: str) -> str:
-    """解码 Cloudflare data-cfemail 属性（XOR算法）"""
     try:
         enc = bytes.fromhex(encoded)
         key = enc[0]
@@ -77,7 +79,6 @@ def decode_cfemail(encoded: str) -> str:
 
 
 def find_country(text: str) -> str:
-    """从文本中提取国家，绝不默认美国"""
     if not text:
         return ""
     m = COUNTRY_RE.search(text)
@@ -89,16 +90,6 @@ def find_time(text: str) -> str:
     return m.group(1).strip() if m else ""
 
 
-def make_record(email, password, status="正常", checked_at="", country=""):
-    return {
-        "email": email.lower().strip(),
-        "password": password.strip(),
-        "status": status,
-        "checked_at": checked_at,
-        "country": country,
-    }
-
-
 def dedup(lst):
     seen, out = set(), []
     for r in lst:
@@ -107,6 +98,39 @@ def dedup(lst):
             seen.add(e)
             out.append(r)
     return out
+
+
+def parse_text(text):
+    """文本中直接提取 email+密码 对"""
+    results, seen = [], set()
+    INLINE = re.compile(
+        r"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,})"
+        r"[\s\t]*(?:密码|password|pwd)?[\s::/|｜,，\t ]*"
+        r"([A-Za-z0-9!@#$%^&*()\-_=+\[\]{};:.]{6,32})", re.IGNORECASE)
+    CTX_PWD = re.compile(
+        r"(?:密[码碼]|pass(?:word)?|pwd)\s*[：:=\s]\s*([A-Za-z0-9!@#$%^&*()\-_=+\[\]{};:.]{6,32})",
+        re.IGNORECASE)
+    for m in INLINE.finditer(text):
+        e, p = m.group(1).lower(), m.group(2)
+        if (e, p) not in seen and len(p) >= 5:
+            seen.add((e, p))
+            results.append({"email": e, "password": p, "status": "正常", "checked_at": "", "country": ""})
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        emails = EMAIL_RE.findall(line)
+        if not emails:
+            continue
+        ctx = "\n".join(lines[max(0, i-2):i+5])
+        m = CTX_PWD.search(ctx)
+        mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", ctx)
+        if m:
+            for e in emails:
+                k = (e.lower(), m.group(1).strip())
+                if k not in seen and len(k[1]) >= 5:
+                    seen.add(k)
+                    results.append({"email": k[0], "password": k[1],
+                                    "status": "正常", "checked_at": mt.group(1) if mt else "", "country": ""})
+    return results
 
 
 # ══════════════════════════════════════════
@@ -130,10 +154,10 @@ def make_driver():
     return driver
 
 
-def scroll(driver, n=6):
+def scroll(driver, n=8):
     for _ in range(n):
-        driver.execute_script("window.scrollBy(0,800);")
-        time.sleep(0.4)
+        driver.execute_script("window.scrollBy(0,700);")
+        time.sleep(0.5)
 
 
 def close_popups(driver):
@@ -148,42 +172,320 @@ def close_popups(driver):
         "//button[contains(.,'确定')]",
         "//button[contains(.,'关闭')]",
         "//button[contains(.,'Close')]",
+        "//button[contains(.,'close')]",
         "//button[text()='Ok']",
         "//button[text()='OK']",
         "//a[contains(.,'我知道了')]",
+        "//a[contains(.,'知道了')]",
         "//div[contains(@class,'modal')]//button",
+        "//div[contains(@class,'dialog')]//button",
         "//div[contains(@class,'popup')]//button",
+        "//div[contains(@class,'notice')]//button",
+        "//div[contains(@class,'overlay')]//button",
+        "//div[contains(@class,'mask')]//button",
         "//*[@aria-label='Close']",
+        "//*[@aria-label='close']",
         "//*[contains(@class,'close-btn')]",
+        "//*[contains(@class,'closeBtn')]",
         "//*[contains(@class,'modal-close')]",
     ]
     for sel in selectors:
         try:
-            btn = WebDriverWait(driver, 1).until(EC.element_to_be_clickable((By.XPATH, sel)))
+            btn = WebDriverWait(driver, 2).until(EC.element_to_be_clickable((By.XPATH, sel)))
             driver.execute_script("arguments[0].click();", btn)
-            time.sleep(0.4)
+            time.sleep(0.6)
         except Exception:
             pass
 
 
-def wait_for_content(driver, timeout=12):
+# ══════════════════════════════════════════
+# 剪贴板钩子方法（btvda/bocchi2b等专用）
+# ══════════════════════════════════════════
+
+HOOK_JS = r"""
+window.__copied = window.__copied || [];
+try {
+    var _orig = navigator.clipboard.writeText.bind(navigator.clipboard);
+    navigator.clipboard.writeText = function(text){
+        window.__copied.push(text);
+        return _orig(text);
+    };
+} catch(e) {}
+document.addEventListener('copy', function(e){
+    try{
+        var t = e.clipboardData && e.clipboardData.getData('text');
+        if(t) window.__copied.push(t);
+    }catch(ex){}
+}, true);
+"""
+
+
+def click_all_copy_btns(driver, max_clicks=400):
+    """点击所有复制按钮，拦截剪贴板内容，按顺序配对"""
+    driver.execute_script(HOOK_JS)
+    time.sleep(0.5)
+
+    xpath = (
+        "//button[contains(.,'复制账号') or contains(.,'复制帐号') or contains(.,'账号')]"
+        " | //button[contains(.,'复制密码') or contains(.,'密码')]"
+        " | //button[contains(.,'Copy') or contains(.,'copy')]"
+        " | //button[contains(.,'复制') and not(contains(.,'链接')) and not(contains(.,'地址'))]"
+        " | //a[contains(.,'复制账号') or contains(.,'复制密码')]"
+        " | //*[@data-clipboard-target or @data-clipboard-text]"
+    )
+    btns = driver.find_elements(By.XPATH, xpath)
+
+    emails, pwds = [], []
+    for btn in btns[:max_clicks]:
+        try:
+            before = len(driver.execute_script("return window.__copied||[]"))
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", btn)
+            driver.execute_script("arguments[0].click();", btn)
+            time.sleep(0.12)
+            after = driver.execute_script("return window.__copied||[]")
+            if len(after) > before:
+                val = after[-1].strip()
+                if "@" in val:
+                    emails.append(val.lower())
+                elif len(val) >= 5:
+                    pwds.append(val)
+        except Exception:
+            pass
+
+    results = []
+    seen = set()
+
+    # 策略1：emails[i] + pwds[i] 顺序配对
+    for i in range(len(emails)):
+        e = emails[i]
+        p = pwds[i] if i < len(pwds) else ""
+        if e and p and e not in seen and len(p) >= 5:
+            seen.add(e)
+            results.append({"email": e, "password": p, "status": "正常", "checked_at": "", "country": ""})
+
+    # 策略2：__copied 列表整体扫描配对
+    if not results:
+        copied = driver.execute_script("return window.__copied||[]")
+        i = 0
+        while i < len(copied) - 1:
+            a, b = copied[i].strip(), copied[i+1].strip()
+            if "@" in a and len(b) >= 5 and "@" not in b:
+                e = a.lower()
+                if e not in seen:
+                    seen.add(e)
+                    results.append({"email": e, "password": b, "status": "正常",
+                                    "checked_at": "", "country": ""})
+                i += 2
+            else:
+                i += 1
+
+    return results
+
+
+def enrich_country_time(driver, results):
+    """
+    从页面 JS 补充每个账号的国家和时间。
+    修复：不限制 t.length > 1000，改为找最小包含目标邮箱的元素。
+    """
+    if not results:
+        return results
+    emails_set = {r["email"] for r in results}
     try:
-        WebDriverWait(driver, timeout).until(
-            lambda d: "@" in d.page_source and len(d.page_source) > 3000
-        )
+        js_data = driver.execute_script("""
+var CPAT = new RegExp('(""" + COUNTRY_JS + r""")', 'u');
+var TPAT = /(20\d{2}-\d{2}-\d{2}[ T]\d{2}:\d{2})/;
+var out = [], seen = {};
+var emailSet = """ + json.dumps(list(emails_set)) + r""";
+var emailPat = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}/i;
+
+// 遍历所有叶子附近的元素，找包含目标邮箱的最小元素
+document.querySelectorAll('div,li,article,section,tr,td,p,span').forEach(function(el) {
+    var t = (el.innerText || el.textContent || '').trim();
+    if(t.length < 10 || t.length > 3000) return;
+    var em = t.match(emailPat);
+    if(!em) return;
+    var e = em[0].toLowerCase();
+    if(!emailSet.includes(e) || seen[e]) return;
+    var ct = t.match(CPAT);
+    var tm = t.match(TPAT);
+    if(ct || tm) {
+        seen[e] = 1;
+        out.push({email: e, country: ct ? ct[1] : '', time: tm ? tm[1] : ''});
+    }
+});
+return out;
+        """)
+        cmap = {}
+        for d in (js_data or []):
+            e = d.get("email", "")
+            if e and e not in cmap:
+                cmap[e] = (d.get("country", ""), d.get("time", ""))
+        for r in results:
+            info = cmap.get(r.get("email", ""), ("", ""))
+            if info[0]:
+                r["country"] = info[0]
+            if info[1] and not r.get("checked_at"):
+                r["checked_at"] = info[1]
+    except Exception as ex:
+        logger.debug(f"enrich_country_time error: {ex}")
+    return results
+
+
+def js_full_scan(driver):
+    """JS全量扫描：data-clipboard-text + onclick copy() + 密码关键词"""
+    try:
+        raw = driver.execute_script("""
+var results = [];
+var seen = {};
+var EMAIL_P = /[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i;
+var COUNTRY_P = /(美国|英国|日本|香港|台湾|韩国|越南|澳大利亚|新加坡|加拿大|德国|法国|土耳其|俄罗斯|巴西|印度|泰国|马来西亚|菲律宾|印尼|意大利|西班牙|荷兰|蒙古|中国大陆)/;
+var TIME_P = /(20\\d{2}-\\d{2}-\\d{2}[\\sT]\\d{2}:\\d{2}(?::\\d{2})?)/;
+var BAD_P = /异常|失效|不可用|锁定/;
+var PWD_P = /密[码碼][\\s:：]*([A-Za-z0-9!@#$%^&*()\\-_=+]{5,32})/;
+
+var containers = Array.from(document.querySelectorAll(
+    '.card-body,.card,.item,.id-item,.account-item'
+));
+if(containers.length < 2) {
+    containers = Array.from(document.querySelectorAll('div,li,article')).filter(function(el) {
+        var t = el.innerText || '';
+        return EMAIL_P.test(t) && t.length >= 20 && t.length < 2000;
+    });
+}
+
+containers.forEach(function(card) {
+    var text = (card.innerText || card.textContent || '').trim();
+    if(!text || text.length > 2000 || text.length < 15) return;
+    var emailMatch = text.match(EMAIL_P);
+    if(!emailMatch) return;
+    var email = emailMatch[0].toLowerCase();
+    if(seen[email]) return;
+    if(BAD_P.test(text)) return;
+
+    var pwd = '';
+
+    // 1. data-clipboard-text（不含@）
+    card.querySelectorAll('[data-clipboard-text]').forEach(function(el) {
+        if(pwd) return;
+        var v = (el.getAttribute('data-clipboard-text') || '').trim();
+        if(v && v.indexOf('@') < 0 && v.length >= 4 && v.length <= 64) pwd = v;
+    });
+
+    // 2. onclick copy()
+    if(!pwd) {
+        card.querySelectorAll('button,a').forEach(function(btn) {
+            if(pwd) return;
+            var oc = btn.getAttribute('onclick') || '';
+            var m = oc.match(/copy\\('([^']{4,64})'\\)/) ||
+                    oc.match(/copy\\("([^"]{4,64})"\\)/) ||
+                    oc.match(/copy\\(&#39;([^&]{4,64})&#39;\\)/);
+            if(m && m[1].indexOf('@') < 0) pwd = m[1];
+        });
+    }
+
+    // 3. 密码关键词
+    if(!pwd) {
+        var pm = text.match(PWD_P);
+        if(pm) pwd = pm[1];
+    }
+
+    // 4. input value
+    if(!pwd) {
+        card.querySelectorAll('input').forEach(function(inp) {
+            if(pwd) return;
+            var v = (inp.value || inp.getAttribute('value') || '').trim();
+            if(v && v.indexOf('@') < 0 && v.length >= 4 && v.length <= 64) pwd = v;
+        });
+    }
+
+    if(!pwd || pwd.length < 4) return;
+
+    var country = '';
+    var el = card;
+    for(var i=0; i<6; i++) {
+        el = el.parentElement;
+        if(!el) break;
+        var cm = (el.innerText||'').match(COUNTRY_P);
+        if(cm) { country = cm[1]; break; }
+    }
+    if(!country) {
+        var cm2 = text.match(COUNTRY_P);
+        if(cm2) country = cm2[1];
+    }
+
+    var tm = text.match(TIME_P);
+    seen[email] = 1;
+    results.push({
+        email: email, pwd: pwd,
+        time: tm ? tm[1].trim() : '',
+        country: country
+    });
+});
+return results;
+        """)
+        out = []
+        seen = set()
+        for d in (raw or []):
+            e = (d.get("email") or "").lower().strip()
+            p = (d.get("pwd") or "").strip()
+            if e and p and "@" in e and 4 <= len(p) <= 64 and e not in seen:
+                seen.add(e)
+                out.append({"email": e, "password": p, "status": "正常",
+                             "checked_at": (d.get("time") or "").strip(),
+                             "country": d.get("country") or ""})
+        return out
+    except Exception as ex:
+        logger.debug(f"js_full_scan error: {ex}")
+        return []
+
+
+def from_inputs(driver):
+    try:
+        data = driver.execute_script(r"""
+var out=[];
+document.querySelectorAll('input').forEach(function(inp){
+    var v=inp.value||'';
+    if(v&&v.length>=5&&!v.includes('@')){
+        var p=inp.closest('[class]')||inp.parentElement;
+        var txt=p?p.innerText:'';
+        var em=txt.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}/i);
+        if(em) out.push({email:em[0],pwd:v,txt:txt});
+    }
+});
+return out;
+        """)
+        results, seen = [], set()
+        for d in (data or []):
+            e = d.get("email", "").lower()
+            p = d.get("pwd", "")
+            if e and p and "@" in e and e not in seen and len(p) >= 5:
+                seen.add(e)
+                txt = d.get("txt", "")
+                mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", txt)
+                mc = COUNTRY_RE.search(txt)
+                results.append({"email": e, "password": p, "status": "正常",
+                                 "checked_at": mt.group(1) if mt else "",
+                                 "country": mc.group(1) if mc else ""})
+        return results
     except Exception:
-        pass
+        return []
+
+
+def fetch_html(url: str, timeout: int = 12) -> str:
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=timeout)
+        resp.encoding = "utf-8"
+        return resp.text if resp.status_code == 200 else ""
+    except Exception:
+        return ""
 
 
 # ══════════════════════════════════════════
-# 解析策略库（3种独立策略）
+# 专用静态解析策略
 # ══════════════════════════════════════════
 
 def strategy_data_clipboard(html: str) -> list:
-    """
-    策略A：data-clipboard-text 按钮
-    适用：139.196.183.52、idshare001.me、idfree.top、btvda、bocchi2b 等同类框架
-    """
+    """data-clipboard-text 按钮（139.196.183.52 等）"""
     soup = BeautifulSoup(html, "lxml")
     results = []
 
@@ -208,14 +510,12 @@ def strategy_data_clipboard(html: str) -> list:
                 if v and "@" in v:
                     email = v
                     break
-        # 带@的 data-clipboard-text 按钮（兜底）
         if not email:
             for btn in card.select("[data-clipboard-text]"):
                 v = btn.get("data-clipboard-text", "").strip().lower()
                 if v and "@" in v:
                     email = v
                     break
-        # Cloudflare 邮件保护
         if not email:
             cf = card.select_one(".__cf_email__")
             if cf:
@@ -227,7 +527,6 @@ def strategy_data_clipboard(html: str) -> list:
         if not email or "@" not in email:
             continue
 
-        # 密码
         password = ""
         for sel in [".copy-pass-btn", "[id^='password_']",
                     "button.btn-success[data-clipboard-text]",
@@ -238,7 +537,6 @@ def strategy_data_clipboard(html: str) -> list:
                 if v and len(v) >= 4 and "@" not in v:
                     password = v
                     break
-        # 非@的 data-clipboard-text 按钮（兜底）
         if not password:
             for btn in card.select("[data-clipboard-text]"):
                 v = btn.get("data-clipboard-text", "").strip()
@@ -253,28 +551,28 @@ def strategy_data_clipboard(html: str) -> list:
         if badge and bad(badge.get_text(strip=True)):
             continue
 
-        # 国家：先从父级容器找，再从卡片文本找
+        # 国家：从祖先元素找
         country = ""
-        for ancestor in card.parents:
-            ct = ancestor.get_text(" ", strip=True)
+        for anc in card.parents:
+            ct = anc.get_text(" ", strip=True)[:300]
             country = find_country(ct)
             if country:
                 break
-        if not country:
-            country = find_country(card_text)
 
-        results.append(make_record(
-            email, password,
-            checked_at=find_time(card_text),
-            country=country
-        ))
+        results.append({
+            "email": email.lower().strip(),
+            "password": password.strip(),
+            "status": "正常",
+            "checked_at": find_time(card_text),
+            "country": country,
+        })
     return results
 
 
 def strategy_mailto_onclick(html: str) -> list:
     """
-    策略B：mailto href 邮箱 + onclick copy('密码')
-    适用：ccbaohe.com、tkbaohe.com
+    mailto href 邮箱 + onclick copy('密码')
+    ccbaohe.com / tkbaohe.com 专用
     """
     soup = BeautifulSoup(html, "lxml")
     results = []
@@ -295,7 +593,6 @@ def strategy_mailto_onclick(html: str) -> list:
                 if "@" in t:
                     email = t
         if not email or "@" not in email:
-            # 尝试从 data-clipboard-text 找邮箱（兜底）
             for btn in card.select("[data-clipboard-text]"):
                 v = btn.get("data-clipboard-text", "").strip().lower()
                 if "@" in v:
@@ -304,23 +601,17 @@ def strategy_mailto_onclick(html: str) -> list:
         if not email or "@" not in email:
             continue
 
-        # 密码：从 onclick copy() 提取
+        # 密码：onclick copy()
         password = ""
         for btn in card.select("button"):
-            if "密码" not in btn.get_text(strip=True):
+            btn_text = btn.get_text(strip=True)
+            if "密码" not in btn_text and "copy" not in btn_text.lower():
                 continue
             oc = btn.get("onclick", "")
-            # 格式1: copy('abc')
-            m = re.search(r"copy\('([^']{4,64})'\)", oc)
-            if not m:
-                # 格式2: copy("abc")
-                m = re.search(r'copy\("([^"]{4,64})"\)', oc)
-            if not m:
-                # 格式3: HTML实体 &#39;
-                m = re.search(r"copy\(&#39;([^&]{4,64})&#39;\)", oc)
-            if not m:
-                # 格式4: 宽松匹配括号内容
-                m = re.search(r"copy\(([A-Za-z0-9!@#$%^&*()\-_=+]{4,64})\)", oc)
+            m = (re.search(r"copy\('([^']{4,64})'\)", oc) or
+                 re.search(r'copy\("([^"]{4,64})"\)', oc) or
+                 re.search(r"copy\(&#39;([^&]{4,64})&#39;\)", oc) or
+                 re.search(r"copy\(([A-Za-z0-9!@#$%^&*()\-_=+]{4,64})\)", oc))
             if m:
                 password = m.group(1).strip()
                 break
@@ -338,7 +629,7 @@ def strategy_mailto_onclick(html: str) -> list:
         if re.search(r"(异常|失效|不可用|锁定|disabled)", card_text, re.I):
             continue
 
-        # 国家：优先从 card-header 取
+        # 国家：优先 card-header
         country = ""
         header = card.find_previous("div", class_="card-header")
         if header:
@@ -349,15 +640,18 @@ def strategy_mailto_onclick(html: str) -> list:
         mt = re.search(r"检测时间[：:\s]*(20\d{2}-\d{2}-\d{2}\s\d{2}:\d{2}(?::\d{2})?)", card_text)
         checked_at = mt.group(1) if mt else find_time(card_text)
 
-        results.append(make_record(email, password, checked_at=checked_at, country=country))
+        results.append({
+            "email": email.lower().strip(),
+            "password": password.strip(),
+            "status": "正常",
+            "checked_at": checked_at,
+            "country": country,
+        })
     return results
 
 
 def strategy_plaintext(html: str) -> list:
-    """
-    策略C：纯文本格式
-    适用：free.iosapp.icu（账号: xxx  密码: xxx  状态: xxx）
-    """
+    """纯文本格式（free.iosapp.icu）"""
     soup = BeautifulSoup(html, "lxml")
     text = soup.get_text("\n", strip=True)
     results = []
@@ -365,7 +659,6 @@ def strategy_plaintext(html: str) -> list:
 
     blocks = re.split(r"(?=账[号号][:：])", text, flags=re.IGNORECASE)
     if len(blocks) <= 1:
-        # 尝试按编号分割（编号1 编号2...）
         blocks = re.split(r"(?=编号\s*\d+)", text)
 
     for block in blocks:
@@ -395,166 +688,14 @@ def strategy_plaintext(html: str) -> list:
         checked_at = mt.group(1).strip() if mt else find_time(block)
 
         seen.add(email)
-        results.append(make_record(email, password,
-                                   checked_at=checked_at,
-                                   country=find_country(block)))
+        results.append({
+            "email": email,
+            "password": password,
+            "status": "正常",
+            "checked_at": checked_at,
+            "country": find_country(block),
+        })
     return results
-
-
-def strategy_js_scan(driver) -> list:
-    """
-    策略D：JS全量扫描（Selenium专用）
-    多重方式提取密码，精确提取国家
-    """
-    try:
-        raw = driver.execute_script("""
-var results = [];
-var seen = {};
-var EMAIL_P = /[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i;
-var COUNTRY_P = /(美国|英国|日本|香港|台湾|韩国|越南|澳大利亚|新加坡|加拿大|德国|法国|土耳其|俄罗斯|巴西|印度|泰国|马来西亚|菲律宾|印尼|意大利|西班牙|荷兰|蒙古|中国大陆)/;
-var TIME_P = /(20\\d{2}-\\d{2}-\\d{2}[\\sT]\\d{2}:\\d{2}(?::\\d{2})?)/;
-var BAD_P = /异常|失效|不可用|锁定/;
-
-var containers = Array.from(document.querySelectorAll(
-    '.card-body,.card,.item,.id-item,.account-item'
-));
-if(containers.length < 2) {
-    containers = Array.from(document.querySelectorAll('[class]')).filter(function(el) {
-        var t = el.innerText || '';
-        return EMAIL_P.test(t) && t.length < 2000 && t.length > 20;
-    });
-}
-
-containers.forEach(function(card) {
-    var text = (card.innerText || card.textContent || '').trim();
-    if(!text || text.length > 3000) return;
-    var emailMatch = text.match(EMAIL_P);
-    if(!emailMatch) return;
-    var email = emailMatch[0].toLowerCase();
-    if(seen[email]) return;
-    if(BAD_P.test(text)) return;
-
-    var pwd = '';
-
-    // 策略1: data-clipboard-text（不含@）
-    var clipEls = card.querySelectorAll('[data-clipboard-text]');
-    clipEls.forEach(function(el) {
-        if(pwd) return;
-        var v = (el.getAttribute('data-clipboard-text') || '').trim();
-        if(v && v.indexOf('@') < 0 && v.length >= 4 && v.length <= 64) pwd = v;
-    });
-
-    // 策略2: onclick copy()
-    if(!pwd) {
-        card.querySelectorAll('button,a').forEach(function(btn) {
-            if(pwd) return;
-            var oc = btn.getAttribute('onclick') || '';
-            var m = oc.match(/copy\\('([^']{4,64})'\\)/) ||
-                    oc.match(/copy\\("([^"]{4,64})"\\)/) ||
-                    oc.match(/copy\\(&#39;([^&]{4,64})&#39;\\)/);
-            if(m && m[1].indexOf('@') < 0) pwd = m[1];
-        });
-    }
-
-    // 策略3: input value
-    if(!pwd) {
-        card.querySelectorAll('input').forEach(function(inp) {
-            if(pwd) return;
-            var v = (inp.value || inp.getAttribute('value') || '').trim();
-            if(v && v.indexOf('@') < 0 && v.length >= 4 && v.length <= 64) pwd = v;
-        });
-    }
-
-    if(!pwd || pwd.length < 4) return;
-
-    // 国家：从包含该卡片的祖先元素中找（更准确）
-    var country = '';
-    var el = card;
-    for(var i=0; i<5; i++) {
-        el = el.parentElement;
-        if(!el) break;
-        var ct = el.innerText || '';
-        var cm = ct.match(COUNTRY_P);
-        if(cm) { country = cm[1]; break; }
-    }
-    if(!country) {
-        var cm2 = text.match(COUNTRY_P);
-        if(cm2) country = cm2[1];
-    }
-
-    var tm = text.match(TIME_P);
-    seen[email] = 1;
-    results.push({
-        email: email, pwd: pwd,
-        time: tm ? tm[1].trim() : '',
-        country: country
-    });
-});
-return results;
-        """)
-        results = []
-        seen = set()
-        for d in (raw or []):
-            e = (d.get("email") or "").lower().strip()
-            p = (d.get("pwd") or "").strip()
-            if e and p and "@" in e and 4 <= len(p) <= 64 and e not in seen:
-                seen.add(e)
-                results.append(make_record(e, p,
-                                           checked_at=(d.get("time") or "").strip(),
-                                           country=d.get("country") or ""))
-        return results
-    except Exception as ex:
-        logger.debug(f"strategy_js_scan error: {ex}")
-        return []
-
-
-def try_all_static(html: str) -> list:
-    """依次尝试3种静态策略，返回结果最多的"""
-    ra = strategy_data_clipboard(html)
-    rb = strategy_mailto_onclick(html)
-    rc = strategy_plaintext(html)
-    best = max([ra, rb, rc], key=len)
-    return best
-
-
-def fetch_html(url: str, timeout: int = 12) -> str:
-    try:
-        resp = requests.get(url, headers=HEADERS, timeout=timeout)
-        resp.encoding = "utf-8"
-        return resp.text if resp.status_code == 200 else ""
-    except Exception:
-        return ""
-
-
-def crawl_url(driver, url: str, wait: int = 6, scroll_n: int = 8) -> list:
-    """通用入口：requests → Selenium，静态解析 → JS扫描"""
-    # 1. requests + 静态
-    html = fetch_html(url)
-    if html and "@" in html:
-        r = try_all_static(html)
-        if r:
-            logger.info(f"    [requests] {url} → {len(r)} 条")
-            return r
-
-    # 2. Selenium + 静态
-    try:
-        driver.get(url)
-        time.sleep(wait)
-        close_popups(driver)
-        scroll(driver, n=scroll_n)
-        time.sleep(1)
-        r = try_all_static(driver.page_source)
-        if r:
-            logger.info(f"    [selenium+static] {url} → {len(r)} 条")
-            return r
-        # 3. JS扫描
-        r = strategy_js_scan(driver)
-        if r:
-            logger.info(f"    [selenium+js] {url} → {len(r)} 条")
-        return r
-    except Exception as ex:
-        logger.error(f"    crawl_url error {url}: {ex}")
-        return []
 
 
 # ══════════════════════════════════════════
@@ -562,63 +703,108 @@ def crawl_url(driver, url: str, wait: int = 6, scroll_n: int = 8) -> list:
 # ══════════════════════════════════════════
 
 def crawl_idshare001(driver) -> list:
-    """idshare001.me — 不稳定，多路径+多策略"""
+    """idshare001.me — 不稳定，多路径"""
     urls = [
         "https://idshare001.me/goso.html",
         "https://idshare001.me/",
+        "https://idshare001.me/apple",
         "https://idshare001.me/free",
         "https://idshare001.me/share",
     ]
-    # requests 逐个试
-    for url in urls:
-        html = fetch_html(url)
-        if html and "@" in html and len(html) > 3000:
-            r = try_all_static(html)
-            if r:
-                logger.info(f"  idshare001 [requests] {url} → {len(r)} 条")
-                return dedup(r)
-
-    # Selenium 逐个试
+    loaded_url = None
     for url in urls:
         try:
             driver.get(url)
-            time.sleep(5)
-            close_popups(driver)
-            wait_for_content(driver, timeout=10)
-            scroll(driver, n=6)
-            html = driver.page_source
-            if "@" not in html or len(html) < 3000:
-                continue
-            r = try_all_static(html)
-            if not r:
-                r = strategy_js_scan(driver)
-            if r:
-                logger.info(f"  idshare001 [selenium] {url} → {len(r)} 条")
-                return dedup(r)
+            WebDriverWait(driver, 12).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+            src = driver.page_source
+            if "@" in src and len(src) > 2000:
+                loaded_url = url
+                logger.info(f"  idshare001 有效URL: {url}")
+                break
         except Exception:
             continue
 
-    logger.info("  idshare001 抓到: 0")
-    return []
+    if not loaded_url:
+        logger.warning("  idshare001 Selenium无效，尝试requests")
+        for url in urls:
+            html = fetch_html(url)
+            if html and "@" in html:
+                r = strategy_data_clipboard(html) or parse_text(html)
+                if r:
+                    logger.info(f"  idshare001 [requests] → {len(r)} 条")
+                    return dedup(r)
+        logger.info("  idshare001 抓到: 0")
+        return []
+
+    time.sleep(2)
+    for _ in range(3):
+        close_popups(driver)
+        time.sleep(0.5)
+    scroll(driver, n=10)
+    time.sleep(2)
+
+    results = click_all_copy_btns(driver)
+    results = enrich_country_time(driver, results)
+    if not results:
+        results = js_full_scan(driver)
+    if not results:
+        results = from_inputs(driver)
+    if not results:
+        html = fetch_html(loaded_url)
+        results = strategy_data_clipboard(html) or parse_text(html)
+
+    logger.info(f"  idshare001 抓到: {len(results)}")
+    return dedup(results)
 
 
 def crawl_idfree_top(driver) -> list:
     """idfree.top"""
-    for url in ["https://idfree.top/", "https://www.idfree.top/"]:
-        r = crawl_url(driver, url, wait=8)
-        if r:
-            logger.info(f"  idfree_top 抓到: {len(r)}")
-            return dedup(r)
-    logger.info("  idfree_top 抓到: 0")
-    return []
+    loaded = False
+    for url in ["https://idfree.top/", "https://www.idfree.top/", "https://idfree.top/free"]:
+        try:
+            driver.get(url)
+            WebDriverWait(driver, 12).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+            if "@" in driver.page_source and len(driver.page_source) > 2000:
+                loaded = True
+                break
+        except Exception:
+            continue
+
+    if not loaded:
+        for url in ["https://idfree.top/", "https://www.idfree.top/"]:
+            html = fetch_html(url)
+            if html and "@" in html:
+                r = strategy_data_clipboard(html) or parse_text(html)
+                if r:
+                    logger.info(f"  idfree_top [requests] → {len(r)} 条")
+                    return dedup(r)
+        logger.info("  idfree_top 抓到: 0")
+        return []
+
+    time.sleep(2)
+    close_popups(driver)
+    scroll(driver, n=10)
+    time.sleep(2)
+
+    results = click_all_copy_btns(driver)
+    results = enrich_country_time(driver, results)
+    if not results:
+        results = js_full_scan(driver)
+    if not results:
+        results = from_inputs(driver)
+
+    logger.info(f"  idfree_top 抓到: {len(results)}")
+    return dedup(results)
 
 
 def crawl_ip_share(driver) -> list:
-    """139.196.183.52 — data-clipboard-text + Cloudflare 邮件保护"""
+    """139.196.183.52 — data-clipboard-text"""
     base = "http://139.196.183.52"
     discovered = {f"{base}/share/DZhBvnglEU"}
-
-    # 从首页发现更多链接
     for idx in [f"{base}/", f"{base}/share"]:
         html = fetch_html(idx)
         if html:
@@ -636,15 +822,30 @@ def crawl_ip_share(driver) -> list:
                 logger.info(f"    [requests] {url} → {len(r)} 条")
                 all_results.extend(r)
                 continue
-        r = crawl_url(driver, url, wait=5, scroll_n=5)
-        all_results.extend(r)
+        # requests 失败，Selenium
+        try:
+            driver.get(url)
+            time.sleep(5)
+            close_popups(driver)
+            scroll(driver, n=6)
+            r = strategy_data_clipboard(driver.page_source)
+            if not r:
+                r = click_all_copy_btns(driver)
+                r = enrich_country_time(driver, r)
+            if not r:
+                r = js_full_scan(driver)
+            if r:
+                logger.info(f"    [selenium] {url} → {len(r)} 条")
+            all_results.extend(r)
+        except Exception as ex:
+            logger.error(f"  ip_share error {url}: {ex}")
 
     logger.info(f"  139.196.183.52 抓到: {len(dedup(all_results))}")
     return dedup(all_results)
 
 
 def crawl_free_iosapp_icu(driver) -> list:
-    """free.iosapp.icu — 纯文本格式"""
+    """free.iosapp.icu — 纯文本 + 剪贴板两种方式"""
     url = "https://free.iosapp.icu/"
     html = fetch_html(url)
     if html:
@@ -652,14 +853,26 @@ def crawl_free_iosapp_icu(driver) -> list:
         if r:
             logger.info(f"  free.iosapp.icu [requests] → {len(r)} 条")
             return dedup(r)
+
     try:
         driver.get(url)
         time.sleep(5)
         close_popups(driver)
         scroll(driver, n=6)
+
+        # 先试纯文本解析
         r = strategy_plaintext(driver.page_source)
+        if r:
+            logger.info(f"  free.iosapp.icu [static] → {len(r)} 条")
+            return dedup(r)
+
+        # 再试剪贴板
+        r = click_all_copy_btns(driver)
+        r = enrich_country_time(driver, r)
         if not r:
-            r = strategy_js_scan(driver)
+            r = js_full_scan(driver)
+        if not r:
+            r = from_inputs(driver)
         logger.info(f"  free.iosapp.icu [selenium] → {len(r)} 条")
         return dedup(r)
     except Exception as ex:
@@ -668,24 +881,67 @@ def crawl_free_iosapp_icu(driver) -> list:
 
 
 def crawl_app_iosr_cn(driver) -> list:
-    """app.iosr.cn — JS动态渲染，必须Selenium，有刷新按钮"""
+    """app.iosr.cn — 必须 Selenium，点刷新，全套解析"""
     try:
         driver.get("https://app.iosr.cn/tools/apple-shared-id")
-        time.sleep(6)
+        time.sleep(7)
         close_popups(driver)
-        for xpath in ["//button[contains(.,'刷新')]", "//button[contains(.,'Refresh')]"]:
-            try:
-                btn = driver.find_element(By.XPATH, xpath)
-                driver.execute_script("arguments[0].click();", btn)
-                time.sleep(3)
-                break
-            except Exception:
-                pass
+        try:
+            driver.find_element(By.XPATH, "//button[contains(.,'刷新')]").click()
+            time.sleep(4)
+        except Exception:
+            pass
         scroll(driver, n=8)
         time.sleep(2)
-        r = try_all_static(driver.page_source)
+
+        # 先剪贴板方式
+        r = click_all_copy_btns(driver)
+        r = enrich_country_time(driver, r)
+        if r:
+            logger.info(f"  app.iosr.cn [clipboard] → {len(r)} 条")
+            return dedup(r)
+
+        # JS全量扫描
+        r = js_full_scan(driver)
+        if r:
+            logger.info(f"  app.iosr.cn [js_scan] → {len(r)} 条")
+            return dedup(r)
+
+        # BeautifulSoup 补充逻辑
+        seen = set()
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+        for card in soup.find_all(["div", "li", "article"], class_=True):
+            text = card.get_text(" ", strip=True)
+            if len(text) < 20 or len(text) > 600:
+                continue
+            me = EMAIL_RE.search(text)
+            if not me:
+                continue
+            e = me.group().lower()
+            if e in seen:
+                continue
+            mp = re.search(r"密[码碼][\s:：]*([^\s]{5,32})", text)
+            if not mp:
+                after = text[me.end():]
+                mp2 = re.search(r"\b([A-Za-z0-9!@#$%^&*()\-_=+:]{6,32})\b", after)
+                if not mp2:
+                    continue
+                pwd = mp2.group(1)
+            else:
+                pwd = mp.group(1)
+            if re.match(r"^20\d\d[-/]\d\d[-/]\d\d", pwd):
+                continue
+            mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
+            ms = re.search(r"(正常使用|正常|可用)", text)
+            if not ms:
+                continue
+            mc = COUNTRY_RE.search(text)
+            seen.add(e)
+            r.append({"email": e, "password": pwd, "status": "正常",
+                      "checked_at": mt.group(1) if mt else "", "country": mc.group(1) if mc else ""})
+
         if not r:
-            r = strategy_js_scan(driver)
+            r = from_inputs(driver)
         logger.info(f"  app.iosr.cn 抓到: {len(r)}")
         return dedup(r)
     except Exception as ex:
@@ -694,14 +950,16 @@ def crawl_app_iosr_cn(driver) -> list:
 
 
 def crawl_shadowrocket_best(driver) -> list:
-    """shadowrocket.best — 无限滚动"""
+    """shadowrocket.best — 无限滚动，剪贴板方式"""
     url = "https://shadowrocket.best/"
+    # requests 先试
     html = fetch_html(url)
     if html and "@" in html:
-        r = try_all_static(html)
+        r = strategy_data_clipboard(html)
         if r:
             logger.info(f"  shadowrocket.best [requests] → {len(r)} 条")
             return dedup(r)
+
     try:
         driver.get(url)
         time.sleep(6)
@@ -709,16 +967,19 @@ def crawl_shadowrocket_best(driver) -> list:
         last_count = 0
         for _ in range(30):
             driver.execute_script("window.scrollBy(0, 600);")
-            time.sleep(0.4)
-            cards = driver.find_elements(By.CSS_SELECTOR, ".card,.id-card,[class*='card']")
+            time.sleep(0.6)
+            cards = driver.find_elements(By.CSS_SELECTOR,
+                ".card,.id-card,.account-card,[class*='card'],[class*='item'],[class*='account']")
             if len(cards) == last_count:
                 break
             last_count = len(cards)
         driver.execute_script("window.scrollTo(0,0)")
         time.sleep(1)
-        r = try_all_static(driver.page_source)
+
+        r = click_all_copy_btns(driver)
+        r = enrich_country_time(driver, r)
         if not r:
-            r = strategy_js_scan(driver)
+            r = js_full_scan(driver)
         logger.info(f"  shadowrocket.best [selenium] → {len(r)} 条")
         return dedup(r)
     except Exception as ex:
@@ -743,7 +1004,7 @@ def crawl_ccbaohe(driver) -> list:
         time.sleep(2)
         r = strategy_mailto_onclick(driver.page_source)
         if not r:
-            r = strategy_js_scan(driver)
+            r = js_full_scan(driver)
         logger.info(f"  ccbaohe [selenium] → {len(r)} 条")
         return dedup(r)
     except Exception as ex:
@@ -752,7 +1013,7 @@ def crawl_ccbaohe(driver) -> list:
 
 
 def crawl_tkbaohe(driver) -> list:
-    """tkbaohe.com — 与ccbaohe相同结构"""
+    """tkbaohe.com — 与ccbaohe完全相同结构"""
     url = "https://tkbaohe.com/Shadowrocket/"
     html = fetch_html(url)
     if html and "@" in html:
@@ -768,7 +1029,7 @@ def crawl_tkbaohe(driver) -> list:
         time.sleep(2)
         r = strategy_mailto_onclick(driver.page_source)
         if not r:
-            r = strategy_js_scan(driver)
+            r = js_full_scan(driver)
         logger.info(f"  tkbaohe [selenium] → {len(r)} 条")
         return dedup(r)
     except Exception as ex:
@@ -777,35 +1038,68 @@ def crawl_tkbaohe(driver) -> list:
 
 
 def crawl_id_btvda_top(driver) -> list:
-    """id.btvda.top — 账号最多，data-clipboard-text"""
+    """id.btvda.top — 剪贴板方式（原版有效）"""
     url = "https://id.btvda.top/"
-    r = crawl_url(driver, url, wait=6, scroll_n=15)
-    logger.info(f"  id.btvda.top 抓到: {len(r)}")
-    return dedup(r)
+    # requests 先试静态
+    html = fetch_html(url)
+    if html and "@" in html:
+        r = strategy_data_clipboard(html)
+        if r:
+            logger.info(f"  id.btvda.top [requests] → {len(r)} 条")
+            return dedup(r)
+
+    try:
+        driver.get(url)
+        time.sleep(6)
+        close_popups(driver)
+        scroll(driver, n=15)
+        time.sleep(2)
+
+        r = click_all_copy_btns(driver)
+        r = enrich_country_time(driver, r)
+        if not r:
+            r = js_full_scan(driver)
+        if not r:
+            r = from_inputs(driver)
+        logger.info(f"  id.btvda.top 抓到: {len(r)}")
+        return dedup(r)
+    except Exception as ex:
+        logger.error(f"  id.btvda.top error: {ex}")
+        return []
 
 
 def crawl_bocchi2b(driver) -> list:
-    """id.bocchi2b.top — data-clipboard-text，有弹窗"""
+    """id.bocchi2b.top — 剪贴板方式，有弹窗"""
     url = "https://id.bocchi2b.top/"
     html = fetch_html(url)
     if html and "@" in html:
-        r = try_all_static(html)
+        r = strategy_data_clipboard(html)
         if r:
             logger.info(f"  bocchi2b [requests] → {len(r)} 条")
             return dedup(r)
+
     try:
         driver.get(url)
         time.sleep(6)
         for _ in range(4):
             close_popups(driver)
-            time.sleep(0.4)
-        wait_for_content(driver, timeout=15)
+            time.sleep(0.7)
+        try:
+            WebDriverWait(driver, 15).until(
+                lambda d: "@" in d.page_source and len(d.page_source) > 5000
+            )
+        except Exception:
+            pass
         scroll(driver, n=12)
         time.sleep(2)
-        r = try_all_static(driver.page_source)
+
+        r = click_all_copy_btns(driver)
+        r = enrich_country_time(driver, r)
         if not r:
-            r = strategy_js_scan(driver)
-        logger.info(f"  bocchi2b [selenium] → {len(r)} 条")
+            r = from_inputs(driver)
+        if not r:
+            r = js_full_scan(driver)
+        logger.info(f"  bocchi2b 抓到: {len(r)}")
         return dedup(r)
     except Exception as ex:
         logger.error(f"  bocchi2b error: {ex}")
@@ -813,7 +1107,7 @@ def crawl_bocchi2b(driver) -> list:
 
 
 # ══════════════════════════════════════════
-# 站点配置（按指定顺序）
+# 站点配置
 # ══════════════════════════════════════════
 
 SITES = [
@@ -837,7 +1131,7 @@ SITE_ORDER = {s["name"]: i for i, s in enumerate(SITES)}
 # ══════════════════════════════════════════
 
 def crawl_all():
-    records = {}       # email → 账号记录
+    records = {}
     source_stats = {}
 
     logger.info("启动浏览器...")
@@ -875,7 +1169,7 @@ def crawl_all():
                     }
                     nc += 1
                 else:
-                    # 同邮箱：用更新的数据覆盖密码和时间
+                    # 同邮箱：用较新的数据更新
                     existing = records[e]
                     new_t = p.get("checked_at", "")
                     old_t = existing.get("checked_at", "")
@@ -886,13 +1180,14 @@ def crawl_all():
                         existing["country"] = p["country"]
 
             source_stats[site["name"]] = nc
-            logger.info(f"  → 新增 {nc} 条（共 {len(records)} 条）[{site['name']} 抓到 {len(pairs)} 条]")
+            total = len(records)
+            logger.info(f"  → 新增 {nc} 条（共 {total} 条）"
+                        f"  [抓到 {len(pairs)} 条，重复 {len(pairs)-nc} 条]")
             time.sleep(1)
     finally:
         driver.quit()
         logger.info("浏览器已关闭")
 
-    # 排序：先按站点顺序，同站点内按检查时间升序
     def sort_key(a):
         site_rank = SITE_ORDER.get(a.get("source", ""), 999)
         t = a.get("checked_at", "") or a.get("updated_at", "") or ""

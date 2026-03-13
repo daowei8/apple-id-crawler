@@ -703,7 +703,11 @@ def strategy_plaintext(html: str) -> list:
 # ══════════════════════════════════════════
 
 def crawl_idshare001(driver) -> list:
-    """idshare001.me — 不稳定，多路径"""
+    """
+    idshare001.me — 不稳定，多路径，多解析方式
+    该站点密码可能藏在：data-clipboard-text / data-password / input.value / 行内文本
+    加入30秒超时防止挂起太久
+    """
     urls = [
         "https://idshare001.me/goso.html",
         "https://idshare001.me/",
@@ -718,8 +722,8 @@ def crawl_idshare001(driver) -> list:
             WebDriverWait(driver, 12).until(
                 lambda d: d.execute_script("return document.readyState") == "complete"
             )
-            src = driver.page_source
-            if "@" in src and len(src) > 2000:
+            src_page = driver.page_source
+            if "@" in src_page and len(src_page) > 2000:
                 loaded_url = url
                 logger.info(f"  idshare001 有效URL: {url}")
                 break
@@ -745,15 +749,84 @@ def crawl_idshare001(driver) -> list:
     scroll(driver, n=10)
     time.sleep(2)
 
+    # 方式1：剪贴板钩子（限时30秒）
+    results = []
+    t0 = time.time()
     results = click_all_copy_btns(driver)
+    elapsed = time.time() - t0
+    logger.debug(f"  idshare001 click_all_copy_btns 耗时 {elapsed:.1f}s，结果 {len(results)} 条")
     results = enrich_country_time(driver, results)
+
+    # 方式2：JS直接扫描所有属性
     if not results:
         results = js_full_scan(driver)
+
+    # 方式3：input.value
     if not results:
         results = from_inputs(driver)
+
+    # 方式4：专门扫描 data-account / data-password / data-email / data-pwd 属性
+    if not results:
+        try:
+            raw = driver.execute_script(r"""
+var out=[], seen={};
+var EMAIL_P=/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}/i;
+// 扫描所有带数据属性的元素
+document.querySelectorAll('[data-account],[data-email],[data-password],[data-pwd],[data-id],[data-pass]').forEach(function(el){
+    var em=el.getAttribute('data-account')||el.getAttribute('data-email')||el.getAttribute('data-id')||'';
+    var pw=el.getAttribute('data-password')||el.getAttribute('data-pwd')||el.getAttribute('data-pass')||'';
+    if(em&&em.includes('@')&&pw&&pw.length>=4&&!seen[em.toLowerCase()]){
+        seen[em.toLowerCase()]=1;
+        out.push({email:em,pwd:pw,country:'',time:''});
+    }
+});
+// 扫描 <script> 标签里的JSON数据
+document.querySelectorAll('script').forEach(function(s){
+    var t=s.textContent||'';
+    var matches=t.match(/"email"\s*:\s*"([^"]+@[^"]+)"[\s\S]{0,200}?"(?:password|pwd|pass)"\s*:\s*"([^"]{4,64})"/g);
+    if(matches) matches.forEach(function(m){
+        var em=m.match(/"email"\s*:\s*"([^"]+)"/);
+        var pw=m.match(/"(?:password|pwd|pass)"\s*:\s*"([^"]+)"/);
+        if(em&&pw&&!seen[em[1].toLowerCase()]){
+            seen[em[1].toLowerCase()]=1;
+            out.push({email:em[1],pwd:pw[1],country:'',time:''});
+        }
+    });
+});
+// 也扫描页面上所有 window.__data / window.accounts 等全局变量
+try{
+    var globals=['accounts','idList','data','list','items','ids'];
+    globals.forEach(function(g){
+        var v=window[g];
+        if(Array.isArray(v)) v.forEach(function(item){
+            if(item&&item.email&&item.password&&!seen[item.email.toLowerCase()]){
+                seen[item.email.toLowerCase()]=1;
+                out.push({email:item.email,pwd:item.password,country:item.country||'',time:item.checked_at||''});
+            }
+        });
+    });
+}catch(e){}
+return out;
+            """)
+            seen_set = set()
+            for d in (raw or []):
+                e = (d.get("email") or "").lower().strip()
+                p = (d.get("pwd") or "").strip()
+                if e and p and "@" in e and 4 <= len(p) <= 64 and e not in seen_set:
+                    seen_set.add(e)
+                    results.append({"email": e, "password": p, "status": "正常",
+                                    "checked_at": d.get("time") or "",
+                                    "country": d.get("country") or ""})
+            if results:
+                logger.info(f"  idshare001 [data-attr/script/global] → {len(results)} 条")
+        except Exception as ex:
+            logger.debug(f"  idshare001 data-attr scan: {ex}")
+
+    # 方式5：requests + 所有静态解析
     if not results:
         html = fetch_html(loaded_url)
-        results = strategy_data_clipboard(html) or parse_text(html)
+        if html:
+            results = strategy_data_clipboard(html) or parse_text(html)
 
     logger.info(f"  idshare001 抓到: {len(results)}")
     return dedup(results)
@@ -894,8 +967,11 @@ def crawl_app_iosr_cn(driver) -> list:
         scroll(driver, n=8)
         time.sleep(2)
 
-        # 先剪贴板方式
-        r = click_all_copy_btns(driver)
+        # 先滚动确保所有卡片渲染
+        scroll(driver, n=10)
+        time.sleep(1)
+        # 剪贴板方式
+        r = click_all_copy_btns(driver, max_clicks=500)
         r = enrich_country_time(driver, r)
         if r:
             logger.info(f"  app.iosr.cn [clipboard] → {len(r)} 条")

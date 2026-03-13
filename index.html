@@ -27,7 +27,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Te
 
 /* OVERLAY */
 #overlay{position:fixed;inset:0;z-index:999;background:rgba(0,0,0,.88);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);display:flex;align-items:center;justify-content:center;padding:16px;transition:opacity .3s}
-.ov-box{background:var(--bg2);border:.5px solid var(--border-h);border-radius:24px;padding:0;max-width:480px;width:100%;animation:popIn .35s cubic-bezier(.34,1.4,.64,1) both;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.ov-box{background:var(--bg2);border:.5px solid var(--border-h);border-radius:24px;padding:0;max-width:480px;width:100%;animation:popIn .35s cubic-bezier(.34,1.4,.64,1) both;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;max-height:92vh;overflow-y:auto}
 #step-quiz{flex-shrink:0}
 .tut-step{display:none;flex-direction:column;flex:1;min-height:0}
 @keyframes popIn{from{opacity:0;transform:scale(.82) translateY(20px)}to{opacity:1;transform:none}}
@@ -56,7 +56,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,"SF Pro Te
 .tut-header h3{font-size:17px;font-weight:700;margin-bottom:2px;white-space:nowrap}
 .tut-header p{font-size:12px;color:var(--t2);white-space:nowrap}
 /* 图片区：全尺寸，可滚动 */
-.tut-img-wrap{padding:0 14px 10px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
+.tut-img-wrap{padding:0 14px 10px;overflow-y:visible;-webkit-overflow-scrolling:touch}
 .tut-img-wrap img{width:100%;height:auto;display:block;border-radius:10px;cursor:zoom-in;background:var(--card)}
 .img-placeholder{background:var(--card);border-radius:12px;padding:28px 16px;text-align:center;color:var(--t3);font-size:13px;line-height:1.8}
 .tut-footer{padding:0 14px 14px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
@@ -186,11 +186,11 @@ main{padding:0 0 80px}
 footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
 
 @media(max-width:480px){
-  nav{padding:0 12px;gap:7px}.nav-logo{font-size:14px}.nav-cnt{display:none}
+  nav{padding:0 12px;gap:7px}.nav-logo{font-size:13px}}
   .quiz-opt{width:76px;height:76px}
   .quiz-opt img,.quiz-opt .fb{width:44px;height:44px}
   #step-quiz{padding:24px 18px 20px}
-  .tut-img-wrap{padding:10px 12px;max-height:46vh}
+  .tut-img-wrap{padding:10px 12px}
   .tut-footer{padding:0 12px 14px}
   .page-wrap{padding:0 10px}
   main{padding:0 0 80px}
@@ -352,6 +352,12 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
       <a class="alink" href="https://aff.v2ny.mom?path=register&code=iEwQYZsv" target="_blank" rel="noopener">✈️ 老牌机场 1️⃣</a>
       <a class="alink" href="http://www.fb2026.cc/#/register?code=TuoTBZxP" target="_blank" rel="noopener">✈️ 老牌机场 2️⃣</a>
     </div>
+	<div class="airport-row" style="margin-top:10px">
+	  <span class="airport-label">🎯 没有号？</span>
+	  <a class="airport-btn" href="https://3335.eu.cc" target="_blank" rel="noopener" style="background:#e74c3c">右上角购买成品号</a>
+	  <a class="airport-btn b2" href="https://pan.quark.cn/s/b3af89c26883" target="_blank" rel="noopener">📺 购买后登录视频教程</a>
+	</div>
+	<div style="font-size:11px;color:var(--t3);margin-top:6px;padding:0 2px">⚠️ 视频教程内容不全面，但方法通用</div>
   </div>
 
   <!-- 搜索栏 -->

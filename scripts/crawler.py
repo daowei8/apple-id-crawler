@@ -716,9 +716,9 @@ def strategy_plaintext(html: str) -> list:
 
 def crawl_idshare001(driver) -> list:
     """
-    idshare001.me — 不稳定，多路径，多解析方式
-    该站点密码可能藏在：data-clipboard-text / data-password / input.value / 行内文本
-    加入30秒超时防止挂起太久
+    idshare001.me — Cloudflare 保护，加载后会被JS挑战替换
+    策略：readyState=complete 后立刻解析，不等 CF 替换页面
+    有效URL判断：页面 >5000 字节 且 含真实邮箱（至少3个字符本地部分）
     """
     urls = [
         "https://idshare001.me/goso.html",
@@ -727,151 +727,68 @@ def crawl_idshare001(driver) -> list:
         "https://idshare001.me/free",
         "https://idshare001.me/share",
     ]
-    loaded_url = None
+
+    EMAIL_CHECK = re.compile(r'[A-Za-z0-9._%+\-]{4,}@[A-Za-z0-9.\-]+\.[a-z]{2,}', re.I)
+
     for url in urls:
         try:
             driver.get(url)
+            # 等 readyState=complete，但最多等12秒
             WebDriverWait(driver, 12).until(
                 lambda d: d.execute_script("return document.readyState") == "complete"
             )
             src_page = driver.page_source
-            if "@" in src_page and len(src_page) > 2000:
-                loaded_url = url
-                logger.info(f"  idshare001 有效URL: {url}")
-                break
-        except Exception:
+            # 严格判断：必须 >5000 字节 且 有完整邮箱（防止 CF 挑战页混进来）
+            real_emails = EMAIL_CHECK.findall(src_page)
+            if len(src_page) > 5000 and len(real_emails) >= 1:
+                logger.info(f"  idshare001 有效URL: {url} (邮箱={len(real_emails)}, 页面={len(src_page)}字节)")
+                # ★ 立刻解析，不等 CF 替换页面
+                results = []
+                # 先试静态解析（此时页面还是真实内容）
+                r = strategy_data_clipboard(src_page) or parse_text(src_page)
+                if r:
+                    logger.info(f"  idshare001 [立即静态解析] → {len(r)} 条")
+                    results = r
+                # 再等一下做 Selenium 解析（也许 CF 没替换）
+                if not results:
+                    time.sleep(1)
+                    close_popups(driver)
+                    scroll(driver, n=8)
+                    time.sleep(1)
+                    # 检查页面是否还在
+                    check = driver.page_source
+                    if len(check) > 3000 and EMAIL_CHECK.search(check):
+                        results = click_all_copy_btns(driver)
+                        results = enrich_country_time(driver, results)
+                        if not results:
+                            results = js_full_scan(driver)
+                        if not results:
+                            results = from_inputs(driver)
+                        if results:
+                            logger.info(f"  idshare001 [Selenium后解析] → {len(results)} 条")
+                    else:
+                        logger.warning(f"  idshare001 页面已被CF替换 (现在={len(check)}字节)")
+                        # CF替换了，用刚才保存的静态HTML再试
+                        results = strategy_data_clipboard(src_page) or parse_text(src_page)
+                if results:
+                    logger.info(f"  idshare001 抓到: {len(results)}")
+                    return dedup(results)
+        except Exception as ex:
+            logger.debug(f"  idshare001 {url}: {ex}")
             continue
 
-    if not loaded_url:
-        logger.warning("  idshare001 Selenium无效，尝试requests")
-        for url in urls:
-            html = fetch_html(url)
-            if html and "@" in html:
-                r = strategy_data_clipboard(html) or parse_text(html)
-                if r:
-                    logger.info(f"  idshare001 [requests] → {len(r)} 条")
-                    return dedup(r)
-        logger.info("  idshare001 抓到: 0")
-        return []
+    # 所有 Selenium 路径失败，用 requests 直接拉
+    logger.warning("  idshare001 所有Selenium路径失败，尝试requests")
+    for url in urls:
+        html = fetch_html(url)
+        if html and len(html) > 5000 and EMAIL_CHECK.search(html):
+            r = strategy_data_clipboard(html) or parse_text(html)
+            if r:
+                logger.info(f"  idshare001 [requests] → {len(r)} 条")
+                return dedup(r)
 
-    time.sleep(3)
-    for _ in range(4):
-        close_popups(driver)
-        time.sleep(0.5)
-
-    # 诊断：看页面里有多少邮箱，了解结构
-    try:
-        diag = driver.execute_script(r"""
-var emails = (document.body.innerText||'').match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}/gi);
-var btns = document.querySelectorAll('button,a[onclick]');
-var clips = document.querySelectorAll('[data-clipboard-text]');
-var inputs = document.querySelectorAll('input');
-return {
-    emailCount: emails ? emails.length : 0,
-    emails: emails ? emails.slice(0,3) : [],
-    btnCount: btns.length,
-    clipCount: clips.length,
-    inputCount: inputs.length,
-    bodyLen: (document.body.innerText||'').length
-};
-        """)
-        logger.info(f"  idshare001 页面诊断: 邮箱={diag.get('emailCount')} btns={diag.get('btnCount')} clipboard元素={diag.get('clipCount')} inputs={diag.get('inputCount')} bodyLen={diag.get('bodyLen')} 样本={diag.get('emails')}")
-    except Exception as ex:
-        logger.debug(f"  idshare001 诊断失败: {ex}")
-
-    # 等待账号内容加载（最多等15秒）
-    try:
-        WebDriverWait(driver, 15).until(
-            lambda d: len(d.find_elements(By.CSS_SELECTOR,
-                '[data-clipboard-text],[data-account],[data-email],input[type=text]')) > 0
-        )
-    except Exception:
-        pass
-
-    scroll(driver, n=10)
-    time.sleep(2)
-
-    # 方式1：剪贴板钩子
-    results = []
-    t0 = time.time()
-    results = click_all_copy_btns(driver)
-    elapsed = time.time() - t0
-    logger.info(f"  idshare001 click_all_copy_btns 耗时 {elapsed:.1f}s，结果 {len(results)} 条")
-    results = enrich_country_time(driver, results)
-
-    # 方式2：JS直接扫描所有属性
-    if not results:
-        results = js_full_scan(driver)
-
-    # 方式3：input.value
-    if not results:
-        results = from_inputs(driver)
-
-    # 方式4：专门扫描 data-account / data-password / data-email / data-pwd 属性
-    if not results:
-        try:
-            raw = driver.execute_script(r"""
-var out=[], seen={};
-var EMAIL_P=/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}/i;
-// 扫描所有带数据属性的元素
-document.querySelectorAll('[data-account],[data-email],[data-password],[data-pwd],[data-id],[data-pass]').forEach(function(el){
-    var em=el.getAttribute('data-account')||el.getAttribute('data-email')||el.getAttribute('data-id')||'';
-    var pw=el.getAttribute('data-password')||el.getAttribute('data-pwd')||el.getAttribute('data-pass')||'';
-    if(em&&em.includes('@')&&pw&&pw.length>=4&&!seen[em.toLowerCase()]){
-        seen[em.toLowerCase()]=1;
-        out.push({email:em,pwd:pw,country:'',time:''});
-    }
-});
-// 扫描 <script> 标签里的JSON数据
-document.querySelectorAll('script').forEach(function(s){
-    var t=s.textContent||'';
-    var matches=t.match(/"email"\s*:\s*"([^"]+@[^"]+)"[\s\S]{0,200}?"(?:password|pwd|pass)"\s*:\s*"([^"]{4,64})"/g);
-    if(matches) matches.forEach(function(m){
-        var em=m.match(/"email"\s*:\s*"([^"]+)"/);
-        var pw=m.match(/"(?:password|pwd|pass)"\s*:\s*"([^"]+)"/);
-        if(em&&pw&&!seen[em[1].toLowerCase()]){
-            seen[em[1].toLowerCase()]=1;
-            out.push({email:em[1],pwd:pw[1],country:'',time:''});
-        }
-    });
-});
-// 也扫描页面上所有 window.__data / window.accounts 等全局变量
-try{
-    var globals=['accounts','idList','data','list','items','ids'];
-    globals.forEach(function(g){
-        var v=window[g];
-        if(Array.isArray(v)) v.forEach(function(item){
-            if(item&&item.email&&item.password&&!seen[item.email.toLowerCase()]){
-                seen[item.email.toLowerCase()]=1;
-                out.push({email:item.email,pwd:item.password,country:item.country||'',time:item.checked_at||''});
-            }
-        });
-    });
-}catch(e){}
-return out;
-            """)
-            seen_set = set()
-            for d in (raw or []):
-                e = (d.get("email") or "").lower().strip()
-                p = (d.get("pwd") or "").strip()
-                if e and p and "@" in e and 4 <= len(p) <= 64 and e not in seen_set:
-                    seen_set.add(e)
-                    results.append({"email": e, "password": p, "status": "正常",
-                                    "checked_at": d.get("time") or "",
-                                    "country": d.get("country") or ""})
-            if results:
-                logger.info(f"  idshare001 [data-attr/script/global] → {len(results)} 条")
-        except Exception as ex:
-            logger.debug(f"  idshare001 data-attr scan: {ex}")
-
-    # 方式5：requests + 所有静态解析
-    if not results:
-        html = fetch_html(loaded_url)
-        if html:
-            results = strategy_data_clipboard(html) or parse_text(html)
-
-    logger.info(f"  idshare001 抓到: {len(results)}")
-    return dedup(results)
+    logger.info("  idshare001 抓到: 0")
+    return []
 
 
 def crawl_idfree_top(driver) -> list:
@@ -1248,9 +1165,202 @@ SITE_ORDER = {s["name"]: i for i, s in enumerate(SITES)}
 # 主流程
 # ══════════════════════════════════════════
 
+
+def recheck_email_from_site(driver, site_name: str, target_email: str) -> str:
+    """
+    用备用方法从指定站点重新抓取某个邮箱的密码。
+    备用方法和主方法不同，以便交叉验证。
+    返回密码字符串，找不到返回 ""
+    """
+    logger.info(f"    [重抓] {site_name} 用备用方法查找 {target_email}")
+
+    def find_pw(pairs):
+        for p in pairs:
+            if p.get("email", "").lower() == target_email:
+                return p.get("password", "")
+        return ""
+
+    try:
+        if site_name in ("ccbaohe.com/appleID",):
+            # 主方法是 strategy_mailto_onclick，备用：Selenium + js_full_scan
+            driver.get("https://ccbaohe.com/appleID/")
+            time.sleep(8); close_popups(driver); scroll(driver, n=10); time.sleep(2)
+            pairs = js_full_scan(driver) or from_inputs(driver)
+            return find_pw(pairs)
+
+        elif site_name in ("tkbaohe.com",):
+            driver.get("https://tkbaohe.com/Shadowrocket/")
+            time.sleep(8); close_popups(driver); scroll(driver, n=10); time.sleep(2)
+            pairs = js_full_scan(driver) or from_inputs(driver)
+            return find_pw(pairs)
+
+        elif site_name in ("id.btvda.top",):
+            # 主方法是 click_all_copy_btns，备用：requests + strategy_data_clipboard
+            html = fetch_html("https://id.btvda.top/")
+            if html and "@" in html:
+                pairs = strategy_data_clipboard(html) or parse_text(html)
+                pw = find_pw(pairs)
+                if pw:
+                    return pw
+            # 再试 js_full_scan
+            driver.get("https://id.btvda.top/")
+            time.sleep(6); close_popups(driver); scroll(driver, n=15); time.sleep(2)
+            pairs = js_full_scan(driver)
+            return find_pw(pairs)
+
+        elif site_name in ("id.bocchi2b.top",):
+            html = fetch_html("https://id.bocchi2b.top/")
+            if html and "@" in html:
+                pairs = strategy_data_clipboard(html) or parse_text(html)
+                pw = find_pw(pairs)
+                if pw:
+                    return pw
+            driver.get("https://id.bocchi2b.top/")
+            time.sleep(6)
+            for _ in range(4): close_popups(driver); time.sleep(0.5)
+            scroll(driver, n=12); time.sleep(2)
+            pairs = js_full_scan(driver)
+            return find_pw(pairs)
+
+        elif site_name in ("shadowrocket.best",):
+            html = fetch_html("https://shadowrocket.best/")
+            if html and "@" in html:
+                pairs = strategy_data_clipboard(html) or parse_text(html)
+                pw = find_pw(pairs)
+                if pw:
+                    return pw
+            driver.get("https://shadowrocket.best/")
+            time.sleep(6); close_popups(driver); scroll(driver, n=20); time.sleep(2)
+            pairs = js_full_scan(driver)
+            return find_pw(pairs)
+
+        elif site_name in ("139.196.183.52",):
+            # 主是requests静态，备用：Selenium + click_all_copy_btns
+            driver.get("http://139.196.183.52/share/DZhBvnglEU")
+            time.sleep(5); close_popups(driver); scroll(driver, n=6); time.sleep(2)
+            pairs = click_all_copy_btns(driver)
+            pairs = enrich_country_time(driver, pairs)
+            return find_pw(pairs)
+
+        elif site_name in ("app.iosr.cn",):
+            driver.get("https://app.iosr.cn/tools/apple-shared-id")
+            time.sleep(7); close_popups(driver)
+            try:
+                driver.find_element(By.XPATH, "//button[contains(.,'刷新')]").click()
+                time.sleep(4)
+            except Exception:
+                pass
+            scroll(driver, n=10); time.sleep(2)
+            pairs = js_full_scan(driver) or from_inputs(driver)
+            return find_pw(pairs)
+
+        elif site_name in ("free.iosapp.icu",):
+            html = fetch_html("https://free.iosapp.icu/")
+            if html:
+                pairs = parse_text(html)
+                pw = find_pw(pairs)
+                if pw:
+                    return pw
+            driver.get("https://free.iosapp.icu/")
+            time.sleep(5); close_popups(driver); scroll(driver, n=6)
+            pairs = js_full_scan(driver) or from_inputs(driver)
+            return find_pw(pairs)
+
+        elif site_name in ("idfree.top",):
+            driver.get("https://idfree.top/")
+            time.sleep(8); close_popups(driver); scroll(driver, n=10); time.sleep(2)
+            pairs = js_full_scan(driver) or from_inputs(driver)
+            return find_pw(pairs)
+
+    except Exception as ex:
+        logger.debug(f"    [重抓] {site_name} 备用方法异常: {ex}")
+
+    return ""
+
+
+def resolve_conflicts(driver, conflicts: list, records: dict):
+    """
+    对所有密码冲突账号，用备用方法重抓两个来源，交叉验证决定保留哪个密码。
+    conflicts: list of (email, src_a, pw_a, src_b, pw_b)
+    直接修改 records
+    """
+    if not conflicts:
+        return
+
+    logger.info(f"\n{'='*50}")
+    logger.info(f"  开始处理 {len(conflicts)} 个密码冲突...")
+
+    for email, src_a, pw_a, src_b, pw_b in conflicts:
+        logger.info(f"  冲突账号: {email}")
+        logger.info(f"    来源A: {src_a} → {pw_a!r}")
+        logger.info(f"    来源B: {src_b} → {pw_b!r}")
+
+        # 用备用方法分别重抓
+        recheck_a = recheck_email_from_site(driver, src_a, email)
+        recheck_b = recheck_email_from_site(driver, src_b, email)
+
+        logger.info(f"    重抓A({src_a}): {recheck_a!r}")
+        logger.info(f"    重抓B({src_b}): {recheck_b!r}")
+
+        final_pw = None
+
+        if recheck_a and recheck_b:
+            if recheck_a == recheck_b:
+                # 两个备用结果一致 → 用它
+                final_pw = recheck_a
+                logger.info(f"    ✅ 两次重抓一致 → 密码={final_pw!r}")
+            elif recheck_a == pw_a and recheck_b == pw_b:
+                # 各自备用和原始一致，但两边还是不同 → 舍弃
+                logger.info(f"    ❌ 两边各自一致但互不相同 → 舍弃该账号")
+                records.pop(email, None)
+                continue
+            elif recheck_a == pw_a:
+                # A备用和A原始一致，B备用和B原始不同 → 用A
+                final_pw = pw_a
+                logger.info(f"    ✅ A来源备用一致 → 密码={final_pw!r}")
+            elif recheck_b == pw_b:
+                # B备用和B原始一致，A备用和A原始不同 → 用B
+                final_pw = pw_b
+                logger.info(f"    ✅ B来源备用一致 → 密码={final_pw!r}")
+            else:
+                # 备用结果和原始都对不上 → 舍弃
+                logger.info(f"    ❌ 重抓结果均不可靠 → 舍弃该账号")
+                records.pop(email, None)
+                continue
+        elif recheck_a:
+            # 只有A能重抓到
+            if recheck_a == pw_a:
+                final_pw = pw_a
+                logger.info(f"    ✅ 仅A可重抓且一致 → 密码={final_pw!r}")
+            else:
+                logger.info(f"    ❌ A重抓结果和原始不同 → 舍弃该账号")
+                records.pop(email, None)
+                continue
+        elif recheck_b:
+            # 只有B能重抓到
+            if recheck_b == pw_b:
+                final_pw = pw_b
+                logger.info(f"    ✅ 仅B可重抓且一致 → 密码={final_pw!r}")
+            else:
+                logger.info(f"    ❌ B重抓结果和原始不同 → 舍弃该账号")
+                records.pop(email, None)
+                continue
+        else:
+            # 两边都重抓不到 → 舍弃
+            logger.info(f"    ❌ 两边都无法重抓 → 舍弃该账号")
+            records.pop(email, None)
+            continue
+
+        if final_pw and email in records:
+            records[email]["password"] = final_pw
+            records[email]["source"] += f"+verified"
+
+    logger.info(f"{'='*50}\n")
+
 def crawl_all():
     records = {}
     source_stats = {}
+    conflicts = []   # 密码冲突列表，格式: (email, src_a, pw_a, src_b, pw_b)
 
     logger.info("启动浏览器...")
     driver = make_driver()
@@ -1291,21 +1401,40 @@ def crawl_all():
                     }
                     nc += 1
                 else:
-                    # 同邮箱：用较新的数据更新
                     existing = records[e]
-                    new_t = p.get("checked_at", "")
-                    old_t = existing.get("checked_at", "")
-                    if new_t and new_t > old_t:
-                        existing["password"] = pw
-                        existing["checked_at"] = new_t
-                    if p.get("country") and not existing.get("country"):
-                        existing["country"] = p["country"]
+                    existing_pw = existing.get("password", "")
+                    if existing_pw == pw:
+                        # 账号+密码完全相同：正常去重，只更新时间和国家
+                        new_t = p.get("checked_at", "")
+                        old_t = existing.get("checked_at", "")
+                        if new_t and new_t > old_t:
+                            existing["checked_at"] = new_t
+                        if p.get("country") and not existing.get("country"):
+                            existing["country"] = p["country"]
+                    else:
+                        # 账号相同但密码不同：记录冲突，等所有站点跑完后统一重抓验证
+                        logger.warning(
+                            f"  ⚠️  密码冲突 [{e}]: "
+                            f"{existing.get('source')}={existing_pw!r} vs "
+                            f"{site['name']}={pw!r}"
+                        )
+                        conflicts.append((e, existing.get("source"), existing_pw, site["name"], pw))
+                        # 暂时补充国家/时间，密码待验证后决定
+                        if p.get("country") and not existing.get("country"):
+                            existing["country"] = p["country"]
+                        new_t = p.get("checked_at", "")
+                        old_t = existing.get("checked_at", "")
+                        if new_t and new_t > old_t:
+                            existing["checked_at"] = new_t
 
             source_stats[site["name"]] = nc
             total = len(records)
             logger.info(f"  → 新增 {nc} 条（共 {total} 条）"
                         f"  [抓到 {len(pairs)} 条，重复 {len(pairs)-nc} 条]")
             time.sleep(1)
+        # 所有站点跑完后，处理密码冲突
+        if conflicts:
+            resolve_conflicts(driver, conflicts, records)
     finally:
         driver.quit()
         logger.info("浏览器已关闭")

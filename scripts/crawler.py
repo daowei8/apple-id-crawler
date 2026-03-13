@@ -165,66 +165,62 @@ def generic_parse(driver):
 # ──────────────────────────────────────────
 def crawl_ccbaohe(driver):
     driver.get("https://ccbaohe.com/appleID")
-    time.sleep(6)
+    time.sleep(8)  # 等充分加载
     scroll(driver)
-    
-    # 先尝试JS抓取，ccbaohe密码存在data属性或隐藏input
+    time.sleep(2)
+
     results = []
     try:
         data = driver.execute_script("""
             var out = [];
-            // 尝试直接从复制按钮的onclick或data属性拿
-            document.querySelectorAll('[onclick]').forEach(function(el){
-                var oc = el.getAttribute('onclick') || '';
-                var m = oc.match(/['"]([^'"]*@[^'"]+)['"]/);
-                var m2 = oc.match(/copy.*?['"]([A-Za-z0-9!@#$%^&*()\\-_=+]{5,32})['"]/i);
-                if(m && m2) out.push({email:m[1], pwd:m2[1]});
-            });
-            // 备选：找卡片容器，同时有邮箱文本和密码文本
-            if(out.length===0){
-                document.querySelectorAll('.card,.id-card,.item,.account').forEach(function(card){
-                    var text = card.innerText || '';
-                    var em = text.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
-                    var pw = text.match(/密码[\\s:：]*([A-Za-z0-9!@#$%^&*()\\-_=+]{5,32})/);
-                    if(em && pw) out.push({email:em[0], pwd:pw[1]});
-                });
+            // ccbaohe每张卡片结构：账号在某个元素里，密码在input里
+            var cards = document.querySelectorAll('.id-item,.account-item,.card,table tr,[class*="account"],[class*="card"]');
+            if(cards.length === 0){
+                // 备选：找所有含@的文本节点
+                cards = document.querySelectorAll('div,li,tr');
             }
+            cards.forEach(function(card){
+                var t = card.innerText || '';
+                if(t.length < 10) return;
+                var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
+                if(!em) return;
+                // 找密码input
+                var inp = card.querySelector('input');
+                var pwd = inp ? (inp.value||inp.getAttribute('value')||'') : '';
+                // 找密码文本
+                if(!pwd || pwd.length<5){
+                    var pw = t.match(/密码[\\s:：]*([A-Za-z0-9!@#$%^&*()\\-_=+.]{5,32})/);
+                    if(pw) pwd = pw[1];
+                }
+                if(!pwd || pwd.length<5) return;
+                var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
+                var mc = t.match(/美国|英国|日本|香港|台湾|韩国|越南|澳大利亚|新加坡|中国/);
+                out.push({email:em[0], pwd:pwd,
+                          time:mt?mt[0]:'', country:mc?mc[0]:'美国'});
+            });
             return out;
         """)
+        seen = set()
         for d in (data or []):
             e = (d.get("email") or "").lower()
-            p = d.get("pwd") or ""
-            if e and p and "@" in e and len(p) >= 5:
-                results.append({"email": e, "password": p, "status": "正常", "checked_at": "", "country": "美国"})
+            p = (d.get("pwd") or "").strip()
+            if e and p and "@" in e and len(p)>=5 and e not in seen:
+                seen.add(e)
+                results.append({"email":e,"password":p,"status":"正常",
+                                 "checked_at":d.get("time",""),
+                                 "country":d.get("country","美国")})
     except Exception as ex:
         logger.warning(f"  ccbaohe JS: {ex}")
-    
+
     if not results:
         results = from_inputs(driver)
     if not results:
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        # 找所有卡片，账号和密码在相邻的span/div里
-        for card in soup.find_all(["div", "li", "article"], class_=True):
-            text = card.get_text(" ", strip=True)
-            me = EMAIL_RE.search(text)
-            mp = re.search(r"密[码碼][\s:：]*([A-Za-z0-9!@#$%^&*()\-_=+]{5,32})", text)
-            if not mp:
-                # 找账号后面第一个像密码的词
-                if me:
-                    after = text[me.end():]
-                    mp2 = re.search(r"\b([A-Za-z][A-Za-z0-9!@#$%^&*()\-_=+]{5,31}|[A-Za-z0-9]{8,32})\b", after)
-                    if mp2: pwd = mp2.group(1)
-                    else: continue
-                else: continue
-            else:
-                pwd = mp.group(1)
-            if me:
-                mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", text)
-                results.append({"email": me.group().lower(), "password": pwd,
-                                 "status": "正常", "checked_at": mt.group(1) if mt else "",
-                                 "country": "美国"})
+        results = generic_parse(driver)
+    logger.info(f"  ccbaohe 抓到: {len(results)}")
     return dedup(results)
 
+
+ 
 # ──────────────────────────────────────────
 # shadowrocket.best/
 # ──────────────────────────────────────────
@@ -327,46 +323,36 @@ def crawl_free_iosapp_icu(driver):
 # ──────────────────────────────────────────
 def crawl_idfree_top(driver):
     driver.get("https://idfree.top/")
-    time.sleep(4)
-    
-    # 点击任意「查看/继续」按钮
-    for sel in ["//button[contains(.,'我已阅读')]", "//button[contains(.,'继续查看')]",
-                "//button[contains(.,'查看账号')]", "//a[contains(.,'继续')]",
-                "//button[contains(.,'知道了')]"]:
+    time.sleep(5)
+    for sel in ["//button[contains(.,'我已阅读')]","//button[contains(.,'继续查看')]",
+                "//button[contains(.,'查看账号')]","//button[contains(.,'知道了')]",
+                "//a[contains(.,'继续')]"]:
         try:
-            btn = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, sel)))
-            driver.execute_script("arguments[0].click();", btn)
-            time.sleep(3); break
+            btn = WebDriverWait(driver,4).until(EC.element_to_be_clickable((By.XPATH,sel)))
+            driver.execute_script("arguments[0].click();",btn); time.sleep(3); break
         except Exception: pass
-    
     scroll(driver)
-    
-    # 密码是 input[type=password]，JS直接读value
+
     results = []
     try:
         data = driver.execute_script("""
             var out = [];
-            // 找所有密码input，同时找同一容器内的email文本
-            document.querySelectorAll('input[type="password"], input[type="text"]').forEach(function(inp){
+            document.querySelectorAll('input').forEach(function(inp){
                 var v = inp.value || '';
-                if(!v || v.length < 5) return;
-                // 找最近的包含email的祖先
+                if(!v || v.length<5 || v.includes('@')) return;
                 var p = inp.parentElement;
-                for(var i=0; i<6; i++){
+                for(var i=0;i<8;i++){
                     if(!p) break;
-                    var t = p.innerText || p.textContent || '';
+                    var t = p.innerText||'';
                     var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
                     if(em){
                         var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                        var ms = t.match(/(正常|异常|可用)/);
-                        var country = t.match(/美国|英国|日本|香港|台湾|韩国|澳大利亚|新加坡|中国|越南/);
-                        out.push({
-                            email: em[0],
-                            pwd: v,
-                            time: mt ? mt[0] : '',
-                            status: ms ? ms[0] : '正常',
-                            country: country ? country[0] : '美国'
-                        });
+                        var mc = t.match(/美国|英国|日本|香港|台湾|韩国|越南/);
+                        var ms = t.match(/(正常|可用)/);
+                        out.push({email:em[0],pwd:v,
+                                  time:mt?mt[0]:'',
+                                  country:mc?mc[0]:'美国',
+                                  status:ms?ms[0]:'正常'});
                         break;
                     }
                     p = p.parentElement;
@@ -377,21 +363,21 @@ def crawl_idfree_top(driver):
         seen = set()
         for d in (data or []):
             e = (d.get("email") or "").lower()
-            p = d.get("pwd") or ""
-            if e and p and "@" in e and len(p) >= 5 and e not in seen:
-                if bad(d.get("status", "")): continue
+            p = (d.get("pwd") or "").strip()
+            if e and p and "@" in e and len(p)>=5 and e not in seen:
                 seen.add(e)
-                results.append({"email": e, "password": p,
-                                 "status": "正常",
-                                 "checked_at": d.get("time", ""),
-                                 "country": d.get("country", "美国")})
+                results.append({"email":e,"password":p,"status":"正常",
+                                 "checked_at":d.get("time",""),
+                                 "country":d.get("country","美国")})
     except Exception as ex:
         logger.warning(f"  idfree_top JS: {ex}")
-    
+
     if not results:
         results = from_inputs(driver)
+    logger.info(f"  idfree_top 抓到: {len(results)}")
     return dedup(results)
-    
+
+
 # ──────────────────────────────────────────
 # id.btvda.top/
 # ──────────────────────────────────────────
@@ -399,24 +385,26 @@ def crawl_id_btvda_top(driver):
     driver.get("https://id.btvda.top/")
     time.sleep(6)
     scroll(driver)
-    
-    # 先用JS读所有input的value
+    time.sleep(2)
+
     results = []
     try:
         data = driver.execute_script("""
             var out = [];
-            document.querySelectorAll('input, textarea').forEach(function(inp){
-                var v = inp.value || inp.getAttribute('value') || inp.placeholder || '';
-                if(!v || v.length < 5) return;
+            document.querySelectorAll('input').forEach(function(inp){
+                var v = inp.value || inp.getAttribute('value') || '';
+                if(!v || v.length<5 || v.includes('@')) return;
                 var p = inp.parentElement;
-                for(var i=0; i<8; i++){
+                for(var i=0;i<8;i++){
                     if(!p) break;
-                    var t = p.innerText || '';
+                    var t = p.innerText||'';
                     var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
-                    if(em && v.indexOf('@')===-1 && v.length>=5){
+                    if(em){
                         var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                        var country = t.match(/美国|英国|日本|香港|台湾|韩国|澳大利亚|越南|新加坡/);
-                        out.push({email:em[0], pwd:v, time:mt?mt[0]:'', country:country?country[0]:'美国'});
+                        var mc = t.match(/美国|英国|日本|香港|台湾|韩国|越南|澳大利亚/);
+                        out.push({email:em[0],pwd:v,
+                                  time:mt?mt[0]:'',
+                                  country:mc?mc[0]:'美国'});
                         break;
                     }
                     p = p.parentElement;
@@ -427,17 +415,20 @@ def crawl_id_btvda_top(driver):
         seen = set()
         for d in (data or []):
             e = (d.get("email") or "").lower()
-            p = d.get("pwd") or ""
-            if e and p and "@" in e and len(p) >= 5 and e not in seen:
+            p = (d.get("pwd") or "").strip()
+            if e and p and "@" in e and len(p)>=5 and e not in seen:
                 seen.add(e)
-                results.append({"email": e, "password": p, "status": "正常",
-                                 "checked_at": d.get("time", ""),
-                                 "country": d.get("country", "美国")})
+                results.append({"email":e,"password":p,"status":"正常",
+                                 "checked_at":d.get("time",""),
+                                 "country":d.get("country","美国")})
     except Exception as ex:
         logger.warning(f"  id_btvda_top JS: {ex}")
-    
+
+    if not results:
+        results = from_inputs(driver)
     if not results:
         results = generic_parse(driver)
+    logger.info(f"  id_btvda_top 抓到: {len(results)}")
     return dedup(results)
     
 
@@ -447,67 +438,78 @@ def crawl_id_btvda_top(driver):
 def crawl_idshare001(driver):
     driver.get("https://idshare001.me/goso.html")
     time.sleep(6)
-    
+
     results = []
-    # 尝试3次（页面会随机更新）
     for attempt in range(3):
         try:
-            data = driver.execute_script("""
-                var out = [];
-                // 优先从按钮的onclick拿
-                document.querySelectorAll('button[onclick], [data-account], [data-email]').forEach(function(el){
-                    var email = el.getAttribute('data-account') || el.getAttribute('data-email') || '';
-                    var pwd   = el.getAttribute('data-password') || el.getAttribute('data-pwd') || '';
-                    if(email && email.includes('@') && pwd && pwd !== 'undefined' && pwd.length>=5){
-                        var card = el.closest('[class]') || el.parentElement;
-                        var txt  = card ? (card.innerText||'') : '';
-                        var mt   = txt.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                        var country = txt.match(/美国|英国|日本|香港|台湾|韩国|越南|澳大利亚|新加坡/);
-                        out.push({email:email, pwd:pwd,
-                                  time: mt?mt[0]:'',
-                                  country: country?country[0]:'美国'});
+            # 点所有复制密码按钮，让密码显示出来
+            driver.execute_script("""
+                document.querySelectorAll('button').forEach(function(b){
+                    if(b.innerText && (b.innerText.includes('复制密码') || b.innerText.includes('密码'))){
+                        try{b.click();}catch(e){}
                     }
                 });
-                // 备选：找所有包含@的文本节点+旁边密码
-                if(out.length===0){
-                    document.querySelectorAll('[class]').forEach(function(card){
-                        var t = card.innerText || '';
-                        var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
-                        var pw = t.match(/密码[\\s:：]*([A-Za-z0-9!@#$%^&*()\\-_=+]{5,32})/);
-                        if(!pw) pw = t.match(/Password[\\s:：]*([A-Za-z0-9!@#$%^&*()\\-_=+]{5,32})/i);
-                        var ms = t.match(/(正常|解锁成功|可用)/);
-                        var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                        var country = t.match(/美国|英国|日本|香港|台湾|韩国|越南/);
-                        if(em && pw && ms){
-                            out.push({email:em[0], pwd:pw[1], time:mt?mt[0]:'',
-                                      country:country?country[0]:'美国'});
-                        }
+            """)
+            time.sleep(1)
+
+            data = driver.execute_script("""
+                var out = [];
+                document.querySelectorAll('[class]').forEach(function(card){
+                    var t = card.innerText || '';
+                    if(t.length<15 || t.length>1000) return;
+                    var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
+                    if(!em) return;
+                    // data属性里的密码
+                    var allEls = card.querySelectorAll('[data-password],[data-pwd],[data-pass]');
+                    var pwd = '';
+                    allEls.forEach(function(el){
+                        var v = el.getAttribute('data-password')||el.getAttribute('data-pwd')||el.getAttribute('data-pass')||'';
+                        if(v && v!=='undefined' && v.length>=5) pwd = v;
                     });
-                }
+                    // input里的密码
+                    if(!pwd){
+                        var inp = card.querySelector('input');
+                        if(inp) pwd = inp.value||'';
+                    }
+                    // 文本里的密码
+                    if(!pwd || pwd.length<5){
+                        var pw = t.match(/密码[\\s:：]*([A-Za-z0-9!@#$%^&*()\\-_=+.]{5,32})/);
+                        if(pw) pwd = pw[1];
+                    }
+                    if(!pwd || pwd.length<5 || pwd==='undefined') return;
+                    var ms = t.match(/(正常|解锁成功|可用)/);
+                    if(!ms) return;
+                    var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
+                    var mc = t.match(/美国|英国|日本|香港|台湾|韩国|越南/);
+                    out.push({email:em[0],pwd:pwd,
+                              time:mt?mt[0]:'',country:mc?mc[0]:'美国'});
+                });
                 return out;
             """)
             seen = set()
             for d in (data or []):
                 e = (d.get("email") or "").lower()
                 p = (d.get("pwd") or "").strip()
-                if p in ("undefined", "null", ""): continue
-                if e and p and "@" in e and len(p) >= 5 and e not in seen:
+                if p in ("undefined","null",""): continue
+                if e and p and "@" in e and len(p)>=5 and e not in seen:
                     seen.add(e)
-                    results.append({"email": e, "password": p, "status": "正常",
-                                     "checked_at": d.get("time", ""),
-                                     "country": d.get("country", "美国")})
+                    results.append({"email":e,"password":p,"status":"正常",
+                                     "checked_at":d.get("time",""),
+                                     "country":d.get("country","美国")})
             if results: break
-            # 尝试刷新
             driver.refresh(); time.sleep(4)
         except Exception as ex:
             logger.warning(f"  idshare001 attempt {attempt}: {ex}")
             driver.refresh(); time.sleep(4)
-    
+
     if not results:
         scroll(driver)
         results = from_inputs(driver) or generic_parse(driver)
+    logger.info(f"  idshare001 抓到: {len(results)}")
     return dedup(results)
-    
+
+
+ 
 # ──────────────────────────────────────────
 # app.iosr.cn/tools/apple-shared-id
 # ──────────────────────────────────────────
@@ -571,61 +573,53 @@ def crawl_app_iosr_cn(driver):
 def crawl_bocchi2b(driver):
     driver.get("https://id.bocchi2b.top/")
     time.sleep(4)
-    
-    # 关闭弹窗
-    for sel in ["//button[text()='Ok']", "//button[text()='OK']", "//button[text()='确定']",
-                "//button[contains(@class,'ok')]", "//div[contains(@class,'modal')]//button"]:
+    for sel in ["//button[text()='Ok']","//button[text()='OK']","//button[text()='确定']",
+                "//div[contains(@class,'modal')]//button"]:
         try:
-            btn = WebDriverWait(driver, 4).until(EC.element_to_be_clickable((By.XPATH, sel)))
-            driver.execute_script("arguments[0].click();", btn); time.sleep(1); break
+            btn = WebDriverWait(driver,4).until(EC.element_to_be_clickable((By.XPATH,sel)))
+            driver.execute_script("arguments[0].click();",btn); time.sleep(1); break
         except Exception: pass
-    
     scroll(driver)
-    
-    # bocchi2b 密码在按钮的data属性或Vue组件里
+    time.sleep(2)
+
     results = []
     try:
-        data = driver.execute_script("""
-            var out = [];
-            // 点击所有「复制密码」按钮，让密码暴露到DOM
-            document.querySelectorAll('button').forEach(function(btn){
-                if(btn.innerText && btn.innerText.includes('复制密码')){
-                    try{ btn.click(); }catch(e){}
+        # 先点所有复制密码按钮
+        driver.execute_script("""
+            document.querySelectorAll('button').forEach(function(b){
+                if(b.innerText && b.innerText.includes('复制密码')){
+                    try{b.click();}catch(e){}
                 }
             });
-            // 等一下再读
-            return null;
         """)
         time.sleep(2)
-        
-        # 现在读取密码（可能出现在input或span里了）
+
         data = driver.execute_script("""
             var out = [];
             document.querySelectorAll('[class]').forEach(function(card){
                 var t = card.innerText || '';
+                if(t.length<15 || t.length>800) return;
                 var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
                 if(!em) return;
-                // 找密码input（type=text，被显示出来了）
-                var inp = card.querySelector('input[type="text"], input:not([type])');
+                var inp = card.querySelector('input[type="text"],input:not([type]),input[type="password"]');
                 var pwd = inp ? inp.value : '';
-                // 或者找非邮件、非时间的短文本
                 if(!pwd || pwd.length<5){
-                    var spans = card.querySelectorAll('span');
+                    // 找非邮件、非日期、非状态词的短文本
+                    var spans = card.querySelectorAll('span,td,p');
                     for(var i=0;i<spans.length;i++){
                         var sv = (spans[i].innerText||'').trim();
-                        if(sv && sv.length>=5 && sv.length<=32 && !sv.includes('@')
-                           && !sv.match(/^20\\d\\d/) && !sv.match(/正常|异常|复制|美国|香港/)){
+                        if(sv && sv.length>=5 && sv.length<=32
+                           && !sv.includes('@') && !sv.match(/^20\\d\\d/)
+                           && !sv.match(/正常|异常|复制|美国|香港|日本|台湾|韩国|越南|未知|蒙古/)){
                             pwd = sv; break;
                         }
                     }
                 }
-                var country = t.match(/香港|日本|美国|英国|台湾|韩国|澳大利亚|越南|蒙古|未知/);
+                if(!pwd || pwd.length<5) return;
+                var mc = t.match(/香港|日本|美国|英国|台湾|韩国|澳大利亚|越南|蒙古|未知/);
                 var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                if(em && pwd && pwd.length>=5){
-                    out.push({email:em[0], pwd:pwd,
-                              country: country?country[0]:'美国',
-                              time: mt?mt[0]:''});
-                }
+                out.push({email:em[0],pwd:pwd,
+                          country:mc?mc[0]:'美国',time:mt?mt[0]:''});
             });
             return out;
         """)
@@ -633,16 +627,17 @@ def crawl_bocchi2b(driver):
         for d in (data or []):
             e = (d.get("email") or "").lower()
             p = (d.get("pwd") or "").strip()
-            if e and p and "@" in e and len(p) >= 5 and e not in seen:
+            if e and p and "@" in e and len(p)>=5 and e not in seen:
                 seen.add(e)
-                results.append({"email": e, "password": p, "status": "正常",
-                                 "checked_at": d.get("time", ""),
-                                 "country": d.get("country", "美国")})
+                results.append({"email":e,"password":p,"status":"正常",
+                                 "checked_at":d.get("time",""),
+                                 "country":d.get("country","美国")})
     except Exception as ex:
         logger.warning(f"  bocchi2b JS: {ex}")
-    
+
     if not results:
         results = from_inputs(driver) or generic_parse(driver)
+    logger.info(f"  bocchi2b 抓到: {len(results)}")
     return dedup(results)
     
 # ──────────────────────────────────────────
@@ -717,50 +712,53 @@ def crawl_ip_share(driver):
 # ──────────────────────────────────────────
 def crawl_tkbaohe(driver):
     driver.get("https://tkbaohe.com/Shadowrocket/")
-    time.sleep(6)
+    time.sleep(8)
     scroll(driver)
-    
+    time.sleep(2)
+
     results = []
     try:
         data = driver.execute_script("""
             var out = [];
-            document.querySelectorAll('input, textarea').forEach(function(inp){
-                var v = inp.value || '';
-                if(!v || v.length < 5 || v.includes('@')) return;
-                var p = inp.parentElement;
-                for(var i=0; i<8; i++){
-                    if(!p) break;
-                    var t = p.innerText || '';
-                    var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
-                    if(em){
-                        var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
-                        var country = t.match(/美国|英国|日本|香港|台湾|韩国|澳大利亚|越南|新加坡|中国大陆/);
-                        out.push({email:em[0], pwd:v,
-                                  time: mt?mt[0]:'',
-                                  country: country?country[0]:'美国'});
-                        break;
-                    }
-                    p = p.parentElement;
+            var cards = document.querySelectorAll('div,li,tr,article');
+            cards.forEach(function(card){
+                var t = card.innerText || '';
+                if(t.length < 10 || t.length > 800) return;
+                var em = t.match(/[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[a-z]{2,}/i);
+                if(!em) return;
+                var inp = card.querySelector('input');
+                var pwd = inp ? (inp.value||inp.getAttribute('value')||'') : '';
+                if(!pwd || pwd.length<5){
+                    var pw = t.match(/密码[\\s:：]*([A-Za-z0-9!@#$%^&*()\\-_=+.]{5,32})/);
+                    if(pw) pwd = pw[1];
                 }
+                if(!pwd || pwd.length<5) return;
+                var mt = t.match(/20\\d\\d-\\d\\d-\\d\\d \\d\\d:\\d\\d/);
+                var mc = t.match(/美国|英国|日本|香港|台湾|韩国|越南|澳大利亚|新加坡|中国大陆/);
+                out.push({email:em[0], pwd:pwd,
+                          time:mt?mt[0]:'', country:mc?mc[0]:'美国'});
             });
             return out;
         """)
         seen = set()
         for d in (data or []):
             e = (d.get("email") or "").lower()
-            p = d.get("pwd") or ""
-            if e and p and "@" in e and len(p) >= 5 and e not in seen:
+            p = (d.get("pwd") or "").strip()
+            if e and p and "@" in e and len(p)>=5 and e not in seen:
                 seen.add(e)
-                results.append({"email": e, "password": p, "status": "正常",
-                                 "checked_at": d.get("time", ""),
-                                 "country": d.get("country", "美国")})
+                results.append({"email":e,"password":p,"status":"正常",
+                                 "checked_at":d.get("time",""),
+                                 "country":d.get("country","美国")})
     except Exception as ex:
         logger.warning(f"  tkbaohe JS: {ex}")
-    
+
     if not results:
-        results = from_inputs(driver) or generic_parse(driver)
+        results = from_inputs(driver)
+    if not results:
+        results = generic_parse(driver)
+    logger.info(f"  tkbaohe 抓到: {len(results)}")
     return dedup(results)
-    
+     
 
 
 
@@ -780,27 +778,6 @@ SITES = [
 def crawl_all():
     seen, source_stats = {}, {}
 
-    # dongyubin API
-    logger.info("▶ 抓取 dongyubin API...")
-    try:
-        pairs = crawl_dongyubin_api()
-        nc = 0
-        for p in pairs:
-            e = p.get("email","").strip().lower()
-            pw = p.get("password","").strip()
-            if not e or not pw or "@" not in e or len(pw)<4: continue
-            if len(set(pw))<2: continue
-            if e not in seen:
-                seen[e] = {"id":uid(e),"email":e,"password":pw,"status":p.get("status","正常"),
-                           "checked_at":p.get("checked_at",""),"source":"dongyubin.github(API)",
-                           "updated_at":now_cst()}
-                nc += 1
-        source_stats["dongyubin.github(API)"] = nc
-        logger.info(f"  → 新增 {nc} 条")
-    except Exception as e:
-        logger.error(f"  dongyubin API: {e}")
-        source_stats["dongyubin.github(API)"] = 0
-
     logger.info("启动浏览器...")
     driver = make_driver()
     try:
@@ -818,45 +795,30 @@ def crawl_all():
                 if not e or not pw or "@" not in e or len(pw)<4: continue
                 if len(set(pw))<2: continue
                 if e not in seen:
-                    seen[e] = {"id":uid(e),"email":e,"password":pw,"status":p.get("status","正常"),
-                               "checked_at":p.get("checked_at",""),"source":site["name"],
+                    seen[e] = {"id":uid(e),"email":e,"password":pw,
+                               "status":p.get("status","正常"),
+                               "country":p.get("country","美国"),
+                               "checked_at":p.get("checked_at",""),
+                               "source":site["name"],
                                "updated_at":now_cst()}
                     nc += 1
             source_stats[site["name"]] = nc
             logger.info(f"  → 新增 {nc} 条（共 {len(seen)} 条）")
             time.sleep(2)
-
-        # dongyubin 页面补充
-        if source_stats.get("dongyubin.github(API)",0) == 0:
-            logger.info("▶ dongyubin 页面补充...")
-            try:
-                pairs = crawl_dongyubin_page(driver)
-                nc = 0
-                for p in pairs:
-                    e = p.get("email","").strip().lower()
-                    pw = p.get("password","").strip()
-                    if not e or not pw or "@" not in e or len(pw)<4: continue
-                    if e not in seen:
-                        seen[e] = {"id":uid(e),"email":e,"password":pw,"status":"正常",
-                                   "checked_at":"","source":"dongyubin.github(page)",
-                                   "updated_at":now_cst()}
-                        nc += 1
-                source_stats["dongyubin.github(API)"] = nc
-                logger.info(f"  → 补充 {nc} 条")
-            except Exception as e:
-                logger.error(f"  dongyubin page: {e}")
     finally:
         driver.quit()
         logger.info("浏览器已关闭")
 
-    accounts = sorted(seen.values(), key=lambda a: a.get("checked_at","") or a.get("updated_at",""), reverse=True)
+    accounts = sorted(seen.values(),
+                      key=lambda a: a.get("checked_at","") or a.get("updated_at",""),
+                      reverse=True)
     return {
-        "generated_at": datetime.now(CST).isoformat(),
+        "generated_at": datetime.now(CST).strftime("%Y-%m-%d %H:%M"),
         "total": len(accounts),
         "source_stats": source_stats,
         "accounts": accounts,
     }
-
+    
 if __name__ == "__main__":
     output_path = os.environ.get("OUTPUT_FILE","apple_ids.json")
     result = crawl_all()

@@ -217,6 +217,18 @@ document.addEventListener('copy', function(e){
         if(t) window.__copied.push(t);
     }catch(ex){}
 }, true);
+try {
+    var _execOrig = document.execCommand.bind(document);
+    document.execCommand = function(cmd) {
+        if(cmd === 'copy') {
+            try {
+                var sel = window.getSelection();
+                if(sel && sel.toString()) window.__copied.push(sel.toString());
+            } catch(ex) {}
+        }
+        return _execOrig.apply(document, arguments);
+    };
+} catch(e) {}
 """
 
 
@@ -742,19 +754,49 @@ def crawl_idshare001(driver) -> list:
         logger.info("  idshare001 抓到: 0")
         return []
 
-    time.sleep(2)
-    for _ in range(3):
+    time.sleep(3)
+    for _ in range(4):
         close_popups(driver)
         time.sleep(0.5)
+
+    # 诊断：看页面里有多少邮箱，了解结构
+    try:
+        diag = driver.execute_script(r"""
+var emails = (document.body.innerText||'').match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}/gi);
+var btns = document.querySelectorAll('button,a[onclick]');
+var clips = document.querySelectorAll('[data-clipboard-text]');
+var inputs = document.querySelectorAll('input');
+return {
+    emailCount: emails ? emails.length : 0,
+    emails: emails ? emails.slice(0,3) : [],
+    btnCount: btns.length,
+    clipCount: clips.length,
+    inputCount: inputs.length,
+    bodyLen: (document.body.innerText||'').length
+};
+        """)
+        logger.info(f"  idshare001 页面诊断: 邮箱={diag.get('emailCount')} btns={diag.get('btnCount')} clipboard元素={diag.get('clipCount')} inputs={diag.get('inputCount')} bodyLen={diag.get('bodyLen')} 样本={diag.get('emails')}")
+    except Exception as ex:
+        logger.debug(f"  idshare001 诊断失败: {ex}")
+
+    # 等待账号内容加载（最多等15秒）
+    try:
+        WebDriverWait(driver, 15).until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR,
+                '[data-clipboard-text],[data-account],[data-email],input[type=text]')) > 0
+        )
+    except Exception:
+        pass
+
     scroll(driver, n=10)
     time.sleep(2)
 
-    # 方式1：剪贴板钩子（限时30秒）
+    # 方式1：剪贴板钩子
     results = []
     t0 = time.time()
     results = click_all_copy_btns(driver)
     elapsed = time.time() - t0
-    logger.debug(f"  idshare001 click_all_copy_btns 耗时 {elapsed:.1f}s，结果 {len(results)} 条")
+    logger.info(f"  idshare001 click_all_copy_btns 耗时 {elapsed:.1f}s，结果 {len(results)} 条")
     results = enrich_country_time(driver, results)
 
     # 方式2：JS直接扫描所有属性

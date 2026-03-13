@@ -317,8 +317,20 @@ footer{text-align:center;padding:24px;font-size:12px;color:var(--t3)}
   </div>
   <div class="nav-badge">共 <b id="hTotal">-</b> 个账号</div>
   <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="切换亮/暗色">🌙</button>
-  <a class="buy-btn" href="https://3335.eu.cc" target="_blank">🛒 购买海外账号</a>
+  <div style="position:relative;flex-shrink:0">
+    <a class="buy-btn" href="https://3335.eu.cc" target="_blank">🛒 购买海外账号</a>
+    <div style="position:absolute;top:40px;left:50%;transform:translateX(-50%);pointer-events:none;z-index:300;display:flex;justify-content:center;">
+      <svg id="buyArrowSvg" width="20" height="28" viewBox="0 0 20 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10 2 L10 20" stroke="#ff9f0a" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M3 14 L10 22 L17 14" stroke="#ff9f0a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  </div>
 </nav>
+<style>
+#buyArrowSvg{animation:buyBounce 1s ease-in-out infinite}
+@keyframes buyBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(5px)}}
+</style>
 
 <!-- ══ BANNER ══ -->
 <div style="max-width:960px;margin:0 auto">
@@ -570,8 +582,8 @@ function render(){
         <button class="cbtn cbtn-pwd" onclick="copyField('${esc(a.password)}','pwd',this,${idx})">复制密码</button>
       </div>
       <div class="store-tip" id="tip-${idx}">
-        📲 账号密码已复制，点击直接前往下载小火箭：<br>
-        <a href="${STORE_URL}" target="_blank">👉 点我跳转 App Store 下载小火箭</a>
+        ✅ 密码已复制！登录 App Store 后点击下方链接下载小火箭：<br>
+        <a href="${STORE_URL}" target="_blank">👉 前往 App Store 下载 Shadowrocket</a>
       </div>
       <div class="card-rocket">🚀 如此账号未购买小火箭，请更换其他账号重试</div>
     </div>`;
@@ -598,7 +610,7 @@ function showCopyFeedback(btn, type, idx){
   setTimeout(()=>{ btn.textContent=orig; btn.classList.remove('ok'); },1800);
   if(type==='pwd'){
     const tip=document.getElementById('tip-'+idx);
-    if(tip){ tip.classList.add('show'); clearTimeout(tipTimers[idx]); tipTimers[idx]=setTimeout(()=>tip.classList.remove('show'),8000); }
+    if(tip){ tip.classList.add('show'); clearTimeout(tipTimers[idx]); tipTimers[idx]=setTimeout(()=>tip.classList.remove('show'),20000); }
   }
 }
 

@@ -765,21 +765,16 @@ def crawl_tkbaohe(driver):
 
 
 SITES = [
-    {"name":"shadowsockshelp.github.io", "fn":crawl_shadowsockshelp},
-    {"name":"appledi.github.io",          "fn":crawl_appledi_github},
-    {"name":"ccbaohe.com/appleID",        "fn":crawl_ccbaohe},
-    {"name":"shadowrocket.best",          "fn":crawl_shadowrocket_best},
-    {"name":"free.iosapp.icu",            "fn":crawl_free_iosapp_icu},
-    {"name":"idfree.top",                 "fn":crawl_idfree_top},
+    {"name":"ccbaohe.com/appleID",       "fn":crawl_ccbaohe},
+    {"name":"shadowrocket.best",         "fn":crawl_shadowrocket_best},
+    {"name":"free.iosapp.icu",           "fn":crawl_free_iosapp_icu},
+    {"name":"idfree.top",                "fn":crawl_idfree_top},
     {"name":"id.btvda.top",              "fn":crawl_id_btvda_top},
-    {"name":"idshare001.me",              "fn":crawl_idshare001},
+    {"name":"idshare001.me",             "fn":crawl_idshare001},
     {"name":"app.iosr.cn",               "fn":crawl_app_iosr_cn},
     {"name":"id.bocchi2b.top",           "fn":crawl_bocchi2b},
     {"name":"139.196.183.52",            "fn":crawl_ip_share},
-    {"name":"nodeba.com",                "fn":crawl_nodeba},
-    {"name":"tkbaohe.com",              "fn":crawl_tkbaohe},
-    {"name":"ios.aneeo.com",             "fn":crawl_ios_aneeo},
-    {"name":"clashid.com.cn",            "fn":crawl_clashid},
+    {"name":"tkbaohe.com",               "fn":crawl_tkbaohe},
 ]
 
 def crawl_all():

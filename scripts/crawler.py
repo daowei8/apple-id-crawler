@@ -592,9 +592,6 @@ window.fetch = function() {
             var url = (args[0] && args[0].url) || args[0] || '';
             resp.clone().json().then(function(data) {
                 window.__api_all.push({url: String(url), data: data});
-                if(data && (data.id || data.accounts || data.data)) {
-                    window.__api_responses.push(data);
-                }
             }).catch(function(){});
         } catch(e) {}
         return resp;
@@ -633,17 +630,26 @@ def extract_from_vue_api(driver, wait_secs=15, site_name="") -> list:
     deadline = time.time() + wait_secs
     while time.time() < deadline:
         time.sleep(0.5)
-        # 优先从已过滤的响应里找
-        responses = driver.execute_script("return window.__api_responses || []")
-        for resp in responses:
-            accounts = resp.get("id") or resp.get("accounts") or []
-            if isinstance(accounts, list) and len(accounts) > 0:
-                if accounts[0].get("email") or accounts[0].get("account"):
-                    return accounts
-            if isinstance(resp.get("data"), dict):
-                accounts = resp["data"].get("id") or resp["data"].get("accounts") or []
+        all_calls = driver.execute_script("return window.__api_all || []")
+        for call in all_calls:
+            data = call.get("data")
+            # 格式1：直接 list（idshare001/btvda）
+            if isinstance(data, list) and len(data) > 0:
+                first = data[0]
+                if isinstance(first, dict) and (first.get("email") or first.get("account")):
+                    return data
+            # 格式2：{id:[...]} 或 {accounts:[...]}
+            if isinstance(data, dict):
+                accounts = data.get("id") or data.get("accounts") or []
                 if isinstance(accounts, list) and len(accounts) > 0:
-                    return accounts
+                    first = accounts[0]
+                    if isinstance(first, dict) and (first.get("email") or first.get("account")):
+                        return accounts
+                inner = data.get("data")
+                if isinstance(inner, dict):
+                    accounts = inner.get("id") or inner.get("accounts") or []
+                    if isinstance(accounts, list) and len(accounts) > 0:
+                        return accounts
     
     # 超时：打印所有API请求诊断
     all_calls = driver.execute_script("return window.__api_all || []")
@@ -724,8 +730,23 @@ def crawl_idshare001(driver) -> list:
         except Exception:
             pass
 
-    # 等待 API 数据
-    raw = extract_from_vue_api(driver, wait_secs=15)
+    # 先直接请求已知API（/node/getid.php?getid=1 和 getid=2，返回直接list）
+    raw = []
+    for api_path in ["/node/getid.php?getid=2", "/node/getid.php?getid=1"]:
+        try:
+            resp = requests.get("https://idshare001.me" + api_path, headers=HEADERS, timeout=15)
+            if resp.status_code == 200:
+                data = resp.json()
+                if isinstance(data, list) and len(data) > 0:
+                    raw.extend(data)
+                    logger.info(f"  idshare001 direct API {api_path} → {len(data)} 条")
+        except Exception as ex:
+            logger.debug(f"  idshare001 direct API {api_path}: {ex}")
+
+    if not raw:
+        # 兜底：Selenium 拦截
+        raw = extract_from_vue_api(driver, wait_secs=15, site_name="idshare001")
+
     logger.info(f"  idshare001 API拦截到 {len(raw)} 条原始数据")
     results = parse_vue_accounts(raw)
     logger.info(f"  idshare001 抓到: {len(results)}")
@@ -908,8 +929,23 @@ return null;
 
 def crawl_id_btvda_top(driver) -> list:
     """
-    id.btvda.top — 同 idshare001，Vue3 + Vite，数据从 API 接口拉取
+    id.btvda.top — API: https://appleapi.omofunz.com/api/data（返回直接list）
     """
+    # 直接请求已知API
+    try:
+        resp = requests.get("https://appleapi.omofunz.com/api/data",
+                            headers=HEADERS, timeout=15)
+        if resp.status_code == 200:
+            raw = resp.json()
+            if isinstance(raw, list) and len(raw) > 0:
+                results = parse_vue_accounts(raw)
+                if results:
+                    logger.info(f"  id.btvda.top [direct API] → {len(results)} 条")
+                    return dedup(results)
+    except Exception as ex:
+        logger.debug(f"  btvda direct API: {ex}")
+
+    # 兜底：Selenium + 拦截
     url = "https://id.btvda.top/"
     try:
         driver.get("about:blank")

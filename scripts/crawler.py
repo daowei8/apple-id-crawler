@@ -578,29 +578,117 @@ def strategy_mailto_onclick(html: str) -> list:
 # 站点专属爬虫
 # ══════════════════════════════════════════
 
+
+# 拦截 fetch/XHR 的 JS 代码（页面加载前注入）
+INTERCEPT_JS = r"""
+window.__api_responses = window.__api_responses || [];
+// 拦截 fetch
+const _origFetch = window.fetch;
+window.fetch = function() {
+    return _origFetch.apply(this, arguments).then(function(resp) {
+        try {
+            resp.clone().json().then(function(data) {
+                if(data && (data.id || data.accounts || data.data)) {
+                    window.__api_responses.push(data);
+                }
+            }).catch(function(){});
+        } catch(e) {}
+        return resp;
+    });
+};
+// 拦截 XMLHttpRequest
+const _origOpen = XMLHttpRequest.prototype.open;
+const _origSend = XMLHttpRequest.prototype.send;
+XMLHttpRequest.prototype.open = function(method, url) {
+    this.__url = url;
+    return _origOpen.apply(this, arguments);
+};
+XMLHttpRequest.prototype.send = function() {
+    this.addEventListener('load', function() {
+        try {
+            var data = JSON.parse(this.responseText);
+            if(data && (data.id || data.accounts || data.data)) {
+                window.__api_responses.push(data);
+            }
+        } catch(e) {}
+    });
+    return _origSend.apply(this, arguments);
+};
+"""
+
+
+def extract_from_vue_api(driver, wait_secs=15) -> list:
+    """
+    注入 fetch/XHR 拦截钩子，等待 Vue 从 API 拉取数据，
+    直接返回账号列表。
+    数据格式：{ "id": [{email, password, status, country}] }
+    """
+    # 先注入拦截器
+    driver.execute_script(INTERCEPT_JS)
+    
+    # 等待数据到来
+    import time as _time
+    deadline = _time.time() + wait_secs
+    while _time.time() < deadline:
+        _time.sleep(0.5)
+        responses = driver.execute_script("return window.__api_responses || []")
+        for resp in responses:
+            # 格式1: {id: [{email, password, ...}]}
+            accounts = resp.get("id") or resp.get("accounts") or []
+            if isinstance(accounts, list) and len(accounts) > 0:
+                if accounts[0].get("email") or accounts[0].get("account"):
+                    return accounts
+            # 格式2: {data: {id: [...]}}
+            if isinstance(resp.get("data"), dict):
+                accounts = resp["data"].get("id") or resp["data"].get("accounts") or []
+                if isinstance(accounts, list) and len(accounts) > 0:
+                    return accounts
+    return []
+
+
+def parse_vue_accounts(raw_list: list) -> list:
+    """把 API 返回的账号列表转换为标准格式"""
+    results = []
+    for item in raw_list:
+        email = (item.get("email") or item.get("account") or "").strip().lower()
+        pw = (item.get("password") or item.get("pwd") or "").strip()
+        # 处理 unicode 转义（\u0026 → &）
+        pw = pw.encode().decode("unicode_escape") if "\\u" in pw else pw
+        status = item.get("status", "正常")
+        country = item.get("country", "")
+        if not is_valid_email(email) or not pw:
+            continue
+        if bad(status):
+            continue
+        results.append({
+            "email": email, "password": pw, "status": "正常",
+            "checked_at": item.get("checked_at", "") or item.get("time", ""),
+            "country": country or "美国",
+        })
+    return results
+
 def crawl_idshare001(driver) -> list:
     """
-    idshare001.me/goso.html
-    结构：
-    - 入口弹窗：点"我是老玩家"跳过
-    - 卡片：div.bg-white.shadow-sm.rounded-md
-    - 邮箱：__cf_email__ data-cfemail 解码（静态可读）
-    - 密码：Vue动态，按钮 bg-green-400，点击后触发 clipboard
-    - 国家：h2 文本（"越南-🇻🇳"）
-    - 时间：p "时间: ..."
-    策略：静态解码邮箱+国家+时间，逐卡片点密码按钮拦截密码
+    idshare001.me — Vue3 + Vite 应用，数据从 VITE_API_URL 接口拉取
+    格式：{ "id": [{email, password, status, country}] }
+    策略：
+    1. 先注入 fetch/XHR 拦截器
+    2. 点击"我是老玩家"通过弹窗
+    3. 等待 API 响应数据
+    4. 从拦截到的 JSON 直接提取账号
     """
-    urls = [
-        "https://idshare001.me/goso.html",
-        "https://idshare001.me/",
-    ]
+    urls = ["https://idshare001.me/goso.html", "https://idshare001.me/"]
     loaded = False
     for url in urls:
         try:
+            # 先注入拦截器，再加载页面
+            driver.get("about:blank")
+            driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument",
+                {"source": INTERCEPT_JS})
             driver.get(url)
             WebDriverWait(driver, 12).until(
                 lambda d: d.execute_script("return document.readyState") == "complete")
-            if "@" in driver.page_source and len(driver.page_source) > 2000:
+            if len(driver.page_source) > 2000:
                 loaded = True
                 logger.info(f"  idshare001 有效URL: {url}")
                 break
@@ -611,97 +699,22 @@ def crawl_idshare001(driver) -> list:
         logger.info("  idshare001 抓到: 0")
         return []
 
-    time.sleep(2)
-    # 点击"我是老玩家"入口
-    for xpath in [
-        "//button[contains(.,'我是老玩家')]",
-        "//button[contains(.,'老玩家')]",
-        "//a[contains(.,'我是老玩家')]",
-    ]:
+    time.sleep(1)
+    # 点击"我是老玩家"
+    for xpath in ["//button[contains(.,'我是老玩家')]", "//button[contains(.,'老玩家')]"]:
         try:
             btn = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath)))
             driver.execute_script("arguments[0].click();", btn)
             logger.info(f"  idshare001 点击: {btn.text.strip()}")
-            time.sleep(2)
+            time.sleep(1)
             break
         except Exception:
             pass
-    close_popups(driver)
-    time.sleep(1)
-    # 等待卡片渲染（Vue 渲染需要时间）
-    try:
-        WebDriverWait(driver, 15).until(
-            lambda d: len(d.find_elements(By.CSS_SELECTOR,
-                "div.bg-white, .account-card, .__cf_email__")) > 0)
-    except Exception:
-        pass
-    scroll(driver, n=8)
-    time.sleep(2)
 
-    # 注入剪贴板钩子
-    driver.execute_script(HOOK_JS)
-    time.sleep(0.3)
-
-    # 诊断
-    n_cf = len(driver.find_elements(By.CSS_SELECTOR, ".__cf_email__"))
-    n_bg = len(driver.find_elements(By.CSS_SELECTOR, "div.bg-white"))
-    logger.info(f"  idshare001 __cf_email__:{n_cf} bg-white:{n_bg}")
-
-    # 静态解析页面：邮箱解码，找到每张卡片
-    soup = BeautifulSoup(driver.page_source, "lxml")
-    cards = soup.find_all("div", class_=lambda c: c and "bg-white" in c and "shadow" in c)
-    logger.info(f"  idshare001 找到 {len(cards)} 张卡片")
-
-    # 构建 email→卡片信息 映射
-    card_info = {}  # email → {country, checked_at}
-    for card in cards:
-        cf = card.find("a", class_="__cf_email__")
-        if not cf:
-            continue
-        email = decode_cfemail(cf.get("data-cfemail", "")).lower().strip()
-        if not is_valid_email(email):
-            continue
-        h2 = card.find("h2")
-        country_txt = h2.get_text(strip=True) if h2 else ""
-        country = find_country(country_txt) or ("美国" if "US" in country_txt or "🇺🇸" in country_txt else "")
-        time_p = card.find("p", string=re.compile("时间"))
-        checked_at = ""
-        if time_p:
-            m = re.search(r"(20\d{2}-\d{2}-\d{2}\s\d{2}:\d{2})", time_p.get_text())
-            if m:
-                checked_at = m.group(1)
-        card_info[email] = {"country": country, "checked_at": checked_at}
-
-    # 逐卡片点密码按钮：用 Selenium 找密码按钮（bg-green-400）
-    # 先找所有密码按钮（有序）
-    pw_btns = driver.find_elements(By.CSS_SELECTOR, "button.bg-green-400, button[class*='bg-green-400']")
-    acct_btns = driver.find_elements(By.CSS_SELECTOR, "button.bg-blue-400, button[class*='bg-blue-400']")
-    logger.info(f"  idshare001 账号按钮:{len(acct_btns)} 密码按钮:{len(pw_btns)}")
-
-    results = []
-    emails_ordered = list(card_info.keys())
-
-    for i, pw_btn in enumerate(pw_btns):
-        if i >= len(emails_ordered):
-            break
-        email = emails_ordered[i]
-        try:
-            before = driver.execute_script("return (window.__copied||[]).length;")
-            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", pw_btn)
-            driver.execute_script("arguments[0].click();", pw_btn)
-            time.sleep(0.2)
-            copied = driver.execute_script("return window.__copied||[]")
-            if len(copied) > before:
-                pw = copied[-1].strip()
-                if pw and "@" not in pw and 4 <= len(pw) <= 64:
-                    info = card_info[email]
-                    results.append({
-                        "email": email, "password": pw, "status": "正常",
-                        "checked_at": info["checked_at"], "country": info["country"]
-                    })
-        except Exception:
-            continue
-
+    # 等待 API 数据
+    raw = extract_from_vue_api(driver, wait_secs=15)
+    logger.info(f"  idshare001 API拦截到 {len(raw)} 条原始数据")
+    results = parse_vue_accounts(raw)
     logger.info(f"  idshare001 抓到: {len(results)}")
     return dedup(results)
 
@@ -882,130 +895,22 @@ return null;
 
 def crawl_id_btvda_top(driver) -> list:
     """
-    id.btvda.top
-    结构：
-    - 卡片：div.account-card
-    - 邮箱：div.email（遮蔽显示，点复制账号拿完整）
-    - 按钮：.btn-copy-account / .btn-copy-password（Vue动态，无属性）
-    - 国家：div.country-badge（"美区"）
-    策略：CDP预注入钩子（页面加载前），逐卡片点账号按钮确认邮箱，再点密码按钮
+    id.btvda.top — 同 idshare001，Vue3 + Vite，数据从 API 接口拉取
     """
     url = "https://id.btvda.top/"
     try:
-        # CDP 预注入：在 Vue 挂载前就拦截 clipboard
+        driver.get("about:blank")
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument",
-            {"source": HOOK_JS})
+            {"source": INTERCEPT_JS})
         driver.get(url)
-        time.sleep(6)
+        time.sleep(4)
         close_popups(driver)
-        scroll(driver, n=15)
-        time.sleep(2)
 
-        # 确认钩子已注入
-        driver.execute_script(HOOK_JS)
-        time.sleep(0.3)
-
-        # 找所有账号按钮
-        acct_btns = driver.find_elements(By.CSS_SELECTOR, ".btn-copy-account")
-        pw_btns   = driver.find_elements(By.CSS_SELECTOR, ".btn-copy-password")
-        logger.info(f"  btvda 账号按钮:{len(acct_btns)} 密码按钮:{len(pw_btns)}")
-
-        # 方法1：从Vue实例直接读数据（最可靠）
-        results = driver.execute_script("""
-var out = [], seen = {};
-document.querySelectorAll('.account-card').forEach(function(card) {
-    // 尝试Vue3实例
-    var vm = card._vei || card.__vueParentComponent;
-    if(!vm && card.__vue__) vm = card.__vue__;
-    
-    // 从卡片内的按钮找Vue实例
-    if(!vm) {
-        var btns = card.querySelectorAll('button');
-        for(var i=0; i<btns.length; i++) {
-            var bvm = btns[i].__vueParentComponent || btns[i].__vue__;
-            if(bvm) { vm = bvm; break; }
-        }
-    }
-    
-    var email = '', pw = '', country = '';
-    
-    // 从Vue state读
-    if(vm) {
-        var state = vm.setupState || (vm.data && vm.data()) || {};
-        var props = vm.props || {};
-        email = (state.account||state.email||state.username||
-                 props.account||props.email||props.username||'').toLowerCase();
-        pw = state.password||state.pwd||state.pass||
-             props.password||props.pwd||props.pass||'';
-    }
-    
-    // Vue读不到，从显示文本猜
-    if(!email || !pw) {
-        var badge = card.querySelector('.country-badge');
-        country = badge ? (badge.innerText||'').trim() : '';
-        // 账号/密码只能点击获取，这里跳过
-        return;
-    }
-    
-    var badge = card.querySelector('.country-badge');
-    country = badge ? (badge.innerText||'').trim() : '';
-    
-    if(email && pw && email.includes('@') && !seen[email]) {
-        seen[email] = 1;
-        out.push({email: email, password: pw, country: country, checked_at: ''});
-    }
-});
-return out;
-        """)
-        
-        if results:
-            parsed = []
-            for d in results:
-                e = (d.get("email","") or "").lower().strip()
-                pw = (d.get("password","") or "").strip()
-                country = find_country(d.get("country","")) or "美国"
-                if is_valid_email(e) and pw and "@" not in pw and 4 <= len(pw) <= 64:
-                    parsed.append({"email": e, "password": pw, "status": "正常",
-                                    "checked_at": "", "country": country})
-            if parsed:
-                logger.info(f"  id.btvda.top [vue-state] → {len(parsed)} 条")
-                return dedup(parsed)
-
-        # 方法2：点击拦截（CDP已预注入）
-        parsed2 = []
-        seen2 = set()
-        count = min(len(acct_btns), len(pw_btns))
-        for i in range(count):
-            try:
-                ab, pb = acct_btns[i], pw_btns[i]
-                before = driver.execute_script("return (window.__copied||[]).length;")
-                driver.execute_script("arguments[0].scrollIntoView({block:'center'});", ab)
-                driver.execute_script("arguments[0].click();", ab)
-                time.sleep(0.2)
-                copied = driver.execute_script("return window.__copied||[]")
-                if len(copied) <= before:
-                    continue
-                email = copied[-1].strip().lower()
-                if not is_valid_email(email):
-                    continue
-                before2 = driver.execute_script("return (window.__copied||[]).length;")
-                driver.execute_script("arguments[0].click();", pb)
-                time.sleep(0.2)
-                copied2 = driver.execute_script("return window.__copied||[]")
-                if len(copied2) <= before2:
-                    continue
-                pw = copied2[-1].strip()
-                if not pw or "@" in pw or not 4 <= len(pw) <= 64:
-                    continue
-                if email not in seen2:
-                    seen2.add(email)
-                    parsed2.append({"email": email, "password": pw,
-                                     "status": "正常", "checked_at": "", "country": "美国"})
-            except Exception:
-                continue
-
-        logger.info(f"  id.btvda.top [clipboard] → {len(parsed2)} 条")
-        return dedup(parsed2)
+        raw = extract_from_vue_api(driver, wait_secs=15)
+        logger.info(f"  btvda API拦截到 {len(raw)} 条原始数据")
+        results = parse_vue_accounts(raw)
+        logger.info(f"  id.btvda.top 抓到: {len(results)}")
+        return dedup(results)
     except Exception as ex:
         logger.error(f"  id.btvda.top error: {ex}")
         return []
@@ -1013,88 +918,58 @@ return out;
 
 def crawl_bocchi2b(driver) -> list:
     """
-    id.bocchi2b.top — 只有2条账号，按钮 onclick=copyToClipboard('value')
-    直接从 onclick 属性静态读取，不需要点击。
+    id.bocchi2b.top — 同框架，先尝试 API 拦截，再用静态 onclick 解析
     """
     url = "https://id.bocchi2b.top/"
-    
-    def parse_bocchi(html):
+
+    def parse_onclick(html):
+        """静态解析 onclick=copyToClipboard(...)"""
         soup = BeautifulSoup(html, "lxml")
         results = []
         btns = soup.find_all("button", onclick=True)
         i = 0
         while i < len(btns) - 1:
-            a_oc = btns[i].get("onclick", "")
-            b_oc = btns[i+1].get("onclick", "")
-            a_m = re.search(r"copyToClipboard\('([^']+)'\)", a_oc)
-            b_m = re.search(r"copyToClipboard\('([^']+)'\)", b_oc)
+            a_m = re.search(r"copyToClipboard\('([^']+)'\)", btns[i].get("onclick",""))
+            b_m = re.search(r"copyToClipboard\('([^']+)'\)", btns[i+1].get("onclick",""))
             if a_m and b_m:
                 email = a_m.group(1).lower().strip()
                 pw = b_m.group(1).strip()
                 if is_valid_email(email) and pw and "@" not in pw:
                     results.append({"email": email, "password": pw,
                                      "status": "正常", "checked_at": "", "country": "美国"})
-                    i += 2
-                    continue
+                    i += 2; continue
             i += 1
         return results
 
-    # 先 requests
+    # 1. requests 静态解析
     html = fetch_html(url)
     if html:
-        r = parse_bocchi(html)
+        r = parse_onclick(html)
         if r:
-            logger.info(f"  bocchi2b [requests] → {len(r)} 条")
+            logger.info(f"  bocchi2b [requests静态] → {len(r)} 条")
             return dedup(r)
-    
-    # Selenium（等待按钮出现）
+
+    # 2. Selenium + API 拦截
     try:
+        driver.get("about:blank")
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument",
+            {"source": INTERCEPT_JS})
         driver.get(url)
-        time.sleep(5)
+        time.sleep(4)
         for _ in range(3):
             close_popups(driver)
             time.sleep(0.5)
-        # 等待 copyToClipboard 按钮出现
-        try:
-            WebDriverWait(driver, 10).until(
-                lambda d: "copyToClipboard" in d.page_source or
-                          len(d.find_elements(By.ID, "copy-username")) > 0)
-        except Exception:
-            pass
-        page = driver.page_source
-        # 诊断
-        import_count = page.count("copyToClipboard")
-        logger.info(f"  bocchi2b page_source: copyToClipboard出现{import_count}次, 长度={len(page)}")
-        r = parse_bocchi(page)
-        # 兜底：直接从DOM读
-        if not r:
-            try:
-                data = driver.execute_script(r"""
-var results = [];
-var btns = Array.from(document.querySelectorAll('button[onclick*="copyToClipboard"]'));
-for(var i=0; i<btns.length-1; i+=2) {
-    var a = btns[i].getAttribute('onclick').match(/copyToClipboard\('([^']+)'\)/);
-    var b = btns[i+1].getAttribute('onclick').match(/copyToClipboard\('([^']+)'\)/);
-    if(a && b) results.push({email: a[1], password: b[1]});
-}
-var u = document.getElementById('copy-username');
-var p = document.getElementById('copy-password');
-if(u && p) {
-    var um = (u.getAttribute('onclick')||'').match(/copyToClipboard\('([^']+)'\)/);
-    var pm = (p.getAttribute('onclick')||'').match(/copyToClipboard\('([^']+)'\)/);
-    if(um && pm) results.push({email: um[1], password: pm[1]});
-}
-return results;
-                """)
-                for d in (data or []):
-                    email = (d.get("email","") or "").lower().strip()
-                    pw = (d.get("password","") or "").strip()
-                    if is_valid_email(email) and pw and "@" not in pw:
-                        r.append({"email": email, "password": pw,
-                                   "status": "正常", "checked_at": "", "country": "美国"})
-            except Exception as ex2:
-                logger.debug(f"  bocchi2b JS读取: {ex2}")
-        logger.info(f"  bocchi2b [selenium] → {len(r)} 条")
+
+        raw = extract_from_vue_api(driver, wait_secs=12)
+        if raw:
+            logger.info(f"  bocchi2b API拦截到 {len(raw)} 条")
+            results = parse_vue_accounts(raw)
+            logger.info(f"  bocchi2b [API] → {len(results)} 条")
+            return dedup(results)
+
+        # 3. Selenium page_source 静态解析兜底
+        r = parse_onclick(driver.page_source)
+        logger.info(f"  bocchi2b [selenium静态] → {len(r)} 条")
         return dedup(r)
     except Exception as ex:
         logger.error(f"  bocchi2b error: {ex}")

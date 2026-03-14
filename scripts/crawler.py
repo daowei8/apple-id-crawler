@@ -580,15 +580,19 @@ def strategy_mailto_onclick(html: str) -> list:
 
 def crawl_idshare001(driver) -> list:
     """
-    idshare001.me — 旧版逻辑（宽松有效URL判断 + click_all_copy_btns）
-    条件：@在页面中 且 页面 > 2000 字节
+    idshare001.me/goso.html
+    结构：
+    - 入口弹窗：点"我是老玩家"跳过
+    - 卡片：div.bg-white.shadow-sm.rounded-md
+    - 邮箱：__cf_email__ data-cfemail 解码（静态可读）
+    - 密码：Vue动态，按钮 bg-green-400，点击后触发 clipboard
+    - 国家：h2 文本（"越南-🇻🇳"）
+    - 时间：p "时间: ..."
+    策略：静态解码邮箱+国家+时间，逐卡片点密码按钮拦截密码
     """
     urls = [
         "https://idshare001.me/goso.html",
         "https://idshare001.me/",
-        "https://idshare001.me/apple",
-        "https://idshare001.me/free",
-        "https://idshare001.me/share",
     ]
     loaded = False
     for url in urls:
@@ -596,8 +600,7 @@ def crawl_idshare001(driver) -> list:
             driver.get(url)
             WebDriverWait(driver, 12).until(
                 lambda d: d.execute_script("return document.readyState") == "complete")
-            src = driver.page_source
-            if "@" in src and len(src) > 2000:
+            if "@" in driver.page_source and len(driver.page_source) > 2000:
                 loaded = True
                 logger.info(f"  idshare001 有效URL: {url}")
                 break
@@ -605,100 +608,87 @@ def crawl_idshare001(driver) -> list:
             continue
 
     if not loaded:
-        logger.warning("  idshare001 所有路径均无效，尝试requests")
-        try:
-            resp = requests.get("https://idshare001.me/goso.html",
-                                headers=HEADERS, timeout=15)
-            r = parse_text(resp.text)
-            if r:
-                logger.info(f"  idshare001 [requests] → {len(r)} 条")
-                return dedup(r)
-        except Exception:
-            pass
         logger.info("  idshare001 抓到: 0")
         return []
 
     time.sleep(2)
-    # 专门处理 idshare001 的入口弹窗：点"我是老玩家"跳过提示直接进账号页
+    # 点击"我是老玩家"入口
     for xpath in [
         "//button[contains(.,'我是老玩家')]",
-        "//a[contains(.,'我是老玩家')]",
         "//button[contains(.,'老玩家')]",
-        "//button[contains(.,'继续查看')]",
-        "//button[contains(.,'查看账号')]",
-        "//button[contains(.,'我已阅读')]",
+        "//a[contains(.,'我是老玩家')]",
     ]:
         try:
-            btn = WebDriverWait(driver, 5).until(
-                EC.element_to_be_clickable((By.XPATH, xpath)))
+            btn = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, xpath)))
             driver.execute_script("arguments[0].click();", btn)
-            logger.info(f"  idshare001 点击入口按钮: {btn.text.strip()}")
+            logger.info(f"  idshare001 点击: {btn.text.strip()}")
             time.sleep(2)
             break
         except Exception:
             pass
-    for _ in range(2):
-        close_popups(driver)
-        time.sleep(0.5)
-    scroll(driver, n=10)
-    time.sleep(2)
+    close_popups(driver)
+    time.sleep(1)
+    scroll(driver, n=8)
+    time.sleep(1)
 
-    # idshare001 使用逐卡片点击（图二显示：点击复制账号/复制密码按钮）
-    results = click_card_by_card(driver, ".btn-copy-account", ".btn-copy-password")
-    if not results:
-        # 也可能叫其他类名，用 click_all_copy_btns 兜底
-        results = click_all_copy_btns(driver)
-    results = enrich_country_time(driver, results)
+    # 注入剪贴板钩子
+    driver.execute_script(HOOK_JS)
+    time.sleep(0.3)
 
-    if not results:
-        # data-* 属性扫描
+    # 静态解析页面：邮箱解码，找到每张卡片
+    soup = BeautifulSoup(driver.page_source, "lxml")
+    cards = soup.find_all("div", class_=lambda c: c and "bg-white" in c and "shadow" in c)
+    logger.info(f"  idshare001 找到 {len(cards)} 张卡片")
+
+    # 构建 email→卡片信息 映射
+    card_info = {}  # email → {country, checked_at}
+    for card in cards:
+        cf = card.find("a", class_="__cf_email__")
+        if not cf:
+            continue
+        email = decode_cfemail(cf.get("data-cfemail", "")).lower().strip()
+        if not is_valid_email(email):
+            continue
+        h2 = card.find("h2")
+        country_txt = h2.get_text(strip=True) if h2 else ""
+        country = find_country(country_txt) or ("美国" if "US" in country_txt or "🇺🇸" in country_txt else "")
+        time_p = card.find("p", string=re.compile("时间"))
+        checked_at = ""
+        if time_p:
+            m = re.search(r"(20\d{2}-\d{2}-\d{2}\s\d{2}:\d{2})", time_p.get_text())
+            if m:
+                checked_at = m.group(1)
+        card_info[email] = {"country": country, "checked_at": checked_at}
+
+    # 逐卡片点密码按钮：用 Selenium 找密码按钮（bg-green-400）
+    # 先找所有密码按钮（有序）
+    pw_btns = driver.find_elements(By.CSS_SELECTOR, "button.bg-green-400, button[class*='bg-green-400']")
+    acct_btns = driver.find_elements(By.CSS_SELECTOR, "button.bg-blue-400, button[class*='bg-blue-400']")
+    logger.info(f"  idshare001 账号按钮:{len(acct_btns)} 密码按钮:{len(pw_btns)}")
+
+    results = []
+    emails_ordered = list(card_info.keys())
+
+    for i, pw_btn in enumerate(pw_btns):
+        if i >= len(emails_ordered):
+            break
+        email = emails_ordered[i]
         try:
-            data = driver.execute_script(r"""
-var out=[], seen={};
-document.querySelectorAll('[data-account],[data-email],[data-password],[data-pwd],[data-id]')
-.forEach(function(el){
-    var em=el.getAttribute('data-account')||el.getAttribute('data-email')
-            ||el.getAttribute('data-id')||'';
-    var pw=el.getAttribute('data-password')||el.getAttribute('data-pwd')||'';
-    if(em&&em.includes('@')&&pw&&pw!=='undefined'&&pw.length>=5&&!seen[em.toLowerCase()]){
-        seen[em.toLowerCase()]=1; out.push({email:em,pwd:pw});
-    }
-});
-document.querySelectorAll('input[type=text],input[type=password],input:not([type])')
-.forEach(function(inp){
-    var v=inp.value||inp.getAttribute('value')||'';
-    if(!v||v.length<5) return;
-    var parent=inp.closest('[class]')||inp.parentElement;
-    var txt=parent?(parent.innerText||''):'';
-    var em=txt.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[a-z]{2,}/i);
-    if(em&&!seen[em[0].toLowerCase()]&&v.indexOf('@')<0){
-        seen[em[0].toLowerCase()]=1; out.push({email:em[0],pwd:v});
-    }
-});
-return out;
-            """)
-            seen = set()
-            for d in (data or []):
-                e = (d.get("email") or "").lower()
-                p = d.get("pwd") or ""
-                if is_valid_email(e) and p and len(p) >= 5 and e not in seen:
-                    seen.add(e)
-                    results.append({"email": e, "password": p, "status": "正常",
-                                    "checked_at": "", "country": ""})
-        except Exception as ex:
-            logger.debug(f"  idshare001 data-attr: {ex}")
-
-    if not results:
-        results = from_inputs(driver)
-    if not results:
-        results = generic_parse(driver)
-    if not results:
-        try:
-            resp = requests.get("https://idshare001.me/goso.html",
-                                headers=HEADERS, timeout=15)
-            results = parse_text(resp.text)
+            before = driver.execute_script("return (window.__copied||[]).length;")
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", pw_btn)
+            driver.execute_script("arguments[0].click();", pw_btn)
+            time.sleep(0.2)
+            copied = driver.execute_script("return window.__copied||[]")
+            if len(copied) > before:
+                pw = copied[-1].strip()
+                if pw and "@" not in pw and 4 <= len(pw) <= 64:
+                    info = card_info[email]
+                    results.append({
+                        "email": email, "password": pw, "status": "正常",
+                        "checked_at": info["checked_at"], "country": info["country"]
+                    })
         except Exception:
-            pass
+            continue
 
     logger.info(f"  idshare001 抓到: {len(results)}")
     return dedup(results)
@@ -880,29 +870,88 @@ return null;
 
 def crawl_id_btvda_top(driver) -> list:
     """
-    id.btvda.top — 按钮结构：
-    .btn-copy-account（复制账号）/ .btn-copy-password（复制密码）
-    无 data-clipboard-text，无 onclick，必须真实点击后从剪贴板拦截。
-    用 click_card_by_card 逐卡片配对，确保账号密码不错位。
+    id.btvda.top
+    结构：
+    - 卡片：div.account-card
+    - 邮箱：div.email（遮蔽显示，点复制账号拿完整）
+    - 按钮：.btn-copy-account / .btn-copy-password（Vue动态，无属性）
+    - 国家：div.country-badge（"美区"）
+    策略：CDP预注入钩子（页面加载前），逐卡片点账号按钮确认邮箱，再点密码按钮
     """
     url = "https://id.btvda.top/"
     try:
+        # CDP 预注入：在 Vue 挂载前就拦截 clipboard
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument",
+            {"source": HOOK_JS})
         driver.get(url)
         time.sleep(6)
         close_popups(driver)
         scroll(driver, n=15)
         time.sleep(2)
 
-        r = click_card_by_card(driver, ".btn-copy-account", ".btn-copy-password")
-        if r:
-            r = enrich_country_time(driver, r)
-            logger.info(f"  id.btvda.top [card-by-card] → {len(r)} 条")
-            return dedup(r)
+        # 确认钩子已注入
+        driver.execute_script(HOOK_JS)
+        time.sleep(0.3)
 
-        # 兜底
-        r = generic_parse(driver)
-        logger.info(f"  id.btvda.top [generic] → {len(r)} 条")
-        return dedup(r)
+        # 找所有账号按钮
+        acct_btns = driver.find_elements(By.CSS_SELECTOR, ".btn-copy-account")
+        pw_btns   = driver.find_elements(By.CSS_SELECTOR, ".btn-copy-password")
+        logger.info(f"  btvda 账号按钮:{len(acct_btns)} 密码按钮:{len(pw_btns)}")
+
+        results = []
+        seen = set()
+        count = min(len(acct_btns), len(pw_btns))
+
+        for i in range(count):
+            try:
+                ab = acct_btns[i]
+                pb = pw_btns[i]
+
+                # 点账号按钮，拦截邮箱
+                before = driver.execute_script("return (window.__copied||[]).length;")
+                driver.execute_script("arguments[0].scrollIntoView({block:'center'});", ab)
+                driver.execute_script("arguments[0].click();", ab)
+                time.sleep(0.2)
+                copied = driver.execute_script("return window.__copied||[]")
+                if len(copied) <= before:
+                    continue
+                email = copied[-1].strip().lower()
+                if not is_valid_email(email):
+                    continue
+
+                # 点密码按钮，拦截密码
+                before2 = driver.execute_script("return (window.__copied||[]).length;")
+                driver.execute_script("arguments[0].click();", pb)
+                time.sleep(0.2)
+                copied2 = driver.execute_script("return window.__copied||[]")
+                if len(copied2) <= before2:
+                    continue
+                pw = copied2[-1].strip()
+                if not pw or "@" in pw or len(pw) < 4:
+                    continue
+
+                # 从卡片容器读国家
+                country = driver.execute_script("""
+var btn = arguments[0];
+var card = btn.closest('.account-card') || btn.parentElement;
+while(card && card !== document.body) {
+    var badge = card.querySelector('.country-badge');
+    if(badge) return (badge.innerText||'').trim();
+    card = card.parentElement;
+}
+return '';
+                """, ab)
+                country = find_country(country) or ("美国" if country and ("美" in country or "US" in country) else "")
+
+                if email not in seen:
+                    seen.add(email)
+                    results.append({"email": email, "password": pw, "status": "正常",
+                                     "checked_at": "", "country": country})
+            except Exception:
+                continue
+
+        logger.info(f"  id.btvda.top [card-by-card] → {len(results)} 条")
+        return dedup(results)
     except Exception as ex:
         logger.error(f"  id.btvda.top error: {ex}")
         return []
@@ -910,31 +959,49 @@ def crawl_id_btvda_top(driver) -> list:
 
 def crawl_bocchi2b(driver) -> list:
     """
-    id.bocchi2b.top — 同 btvda 结构，有弹窗需多轮关闭。
+    id.bocchi2b.top — 只有2条账号，按钮 onclick=copyToClipboard('value')
+    直接从 onclick 属性静态读取，不需要点击。
     """
     url = "https://id.bocchi2b.top/"
+    
+    def parse_bocchi(html):
+        soup = BeautifulSoup(html, "lxml")
+        results = []
+        btns = soup.find_all("button", onclick=True)
+        i = 0
+        while i < len(btns) - 1:
+            a_oc = btns[i].get("onclick", "")
+            b_oc = btns[i+1].get("onclick", "")
+            a_m = re.search(r"copyToClipboard\('([^']+)'\)", a_oc)
+            b_m = re.search(r"copyToClipboard\('([^']+)'\)", b_oc)
+            if a_m and b_m:
+                email = a_m.group(1).lower().strip()
+                pw = b_m.group(1).strip()
+                if is_valid_email(email) and pw and "@" not in pw:
+                    results.append({"email": email, "password": pw,
+                                     "status": "正常", "checked_at": "", "country": "美国"})
+                    i += 2
+                    continue
+            i += 1
+        return results
+
+    # 先 requests
+    html = fetch_html(url)
+    if html:
+        r = parse_bocchi(html)
+        if r:
+            logger.info(f"  bocchi2b [requests] → {len(r)} 条")
+            return dedup(r)
+    
+    # Selenium（有弹窗需关闭）
     try:
         driver.get(url)
-        time.sleep(6)
-        for _ in range(4):
+        time.sleep(5)
+        for _ in range(3):
             close_popups(driver)
-            time.sleep(0.7)
-        try:
-            WebDriverWait(driver, 15).until(
-                lambda d: "@" in d.page_source and len(d.page_source) > 5000)
-        except Exception:
-            pass
-        scroll(driver, n=12)
-        time.sleep(2)
-
-        r = click_card_by_card(driver, ".btn-copy-account", ".btn-copy-password")
-        if r:
-            r = enrich_country_time(driver, r)
-            logger.info(f"  bocchi2b [card-by-card] → {len(r)} 条")
-            return dedup(r)
-
-        r = generic_parse(driver)
-        logger.info(f"  bocchi2b [generic] → {len(r)} 条")
+            time.sleep(0.5)
+        r = parse_bocchi(driver.page_source)
+        logger.info(f"  bocchi2b [selenium] → {len(r)} 条")
         return dedup(r)
     except Exception as ex:
         logger.error(f"  bocchi2b error: {ex}")

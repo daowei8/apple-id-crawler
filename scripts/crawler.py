@@ -767,16 +767,78 @@ def crawl_tkbaohe(driver) -> list:
         return []
 
 
+
+def click_card_by_card(driver, account_cls, password_cls) -> list:
+    """
+    逐卡片点击：先点本卡片的账号按钮拦截邮箱，再点密码按钮拦截密码。
+    专为 btvda/bocchi2b 设计（btn-copy-account / btn-copy-password）。
+    """
+    driver.execute_script(HOOK_JS)
+    time.sleep(0.5)
+
+    # 找所有账号按钮
+    acct_btns = driver.find_elements(By.CSS_SELECTOR, account_cls)
+    results = []
+    seen = set()
+
+    for acct_btn in acct_btns:
+        try:
+            # 重置已拦截列表，只看本次点击
+            before = driver.execute_script("var n=window.__copied.length; return n;")
+
+            driver.execute_script("arguments[0].scrollIntoView({block:'center'});", acct_btn)
+            driver.execute_script("arguments[0].click();", acct_btn)
+            time.sleep(0.15)
+
+            copied = driver.execute_script("return window.__copied||[]")
+            if len(copied) <= before:
+                continue
+            email_val = copied[-1].strip().lower()
+            if not is_valid_email(email_val):
+                continue
+
+            # 找同一个卡片容器下的密码按钮
+            pw_btn = driver.execute_script("""
+var btn = arguments[0];
+var card = btn.closest('.card') || btn.closest('.id-card') ||
+           btn.closest('[class*="card"]') || btn.parentElement;
+while(card && card !== document.body) {
+    var pwBtn = card.querySelector(arguments[1]);
+    if(pwBtn) return pwBtn;
+    card = card.parentElement;
+}
+return null;
+            """, acct_btn, password_cls)
+
+            if not pw_btn:
+                continue
+
+            before2 = driver.execute_script("return window.__copied.length;")
+            driver.execute_script("arguments[0].click();", pw_btn)
+            time.sleep(0.15)
+
+            copied2 = driver.execute_script("return window.__copied||[]")
+            if len(copied2) <= before2:
+                continue
+            pw_val = copied2[-1].strip()
+            if not pw_val or "@" in pw_val or len(pw_val) < 4:
+                continue
+
+            if email_val not in seen:
+                seen.add(email_val)
+                results.append({"email": email_val, "password": pw_val,
+                                 "status": "正常", "checked_at": "", "country": ""})
+        except Exception:
+            continue
+
+    return results
+
 def crawl_id_btvda_top(driver) -> list:
     """
-    id.btvda.top
-    诊断显示 data-clipboard-text 按钮为空，说明不用 data-clipboard-text。
-    尝试顺序：
-    1. strategy_data_clipboard（id精确配对）
-    2. click_all_copy_btns（剪贴板钩子）+ enrich_country_time
-    3. from_inputs
-    4. generic_parse
-    打印诊断日志帮助调试。
+    id.btvda.top — 按钮结构：
+    .btn-copy-account（复制账号）/ .btn-copy-password（复制密码）
+    无 data-clipboard-text，无 onclick，必须真实点击后从剪贴板拦截。
+    用 click_card_by_card 逐卡片配对，确保账号密码不错位。
     """
     url = "https://id.btvda.top/"
     try:
@@ -786,49 +848,16 @@ def crawl_id_btvda_top(driver) -> list:
         scroll(driver, n=15)
         time.sleep(2)
 
-        # 诊断：打印页面按钮结构
-        try:
-            diag = driver.execute_script("""
-var btns = Array.from(document.querySelectorAll('button,a[onclick]')).slice(0,8);
-return btns.map(function(b){
-    return {
-        tag: b.tagName, id: b.id||'', cls: b.className||'',
-        text: (b.innerText||'').trim().slice(0,20),
-        clip: b.getAttribute('data-clipboard-text')||'',
-        oc: (b.getAttribute('onclick')||'').slice(0,50)
-    };
-});
-            """)
-            logger.info(f"  btvda 页面按钮: {diag}")
-            inp_diag = driver.execute_script("""
-var inputs = Array.from(document.querySelectorAll('input')).slice(0,4);
-return inputs.map(function(i){ return {type:i.type,val:(i.value||'').slice(0,30),id:i.id||''}; });
-            """)
-            logger.info(f"  btvda input字段: {inp_diag}")
-        except Exception:
-            pass
-
-        page_html = driver.page_source
-        r = strategy_data_clipboard(page_html)
+        r = click_card_by_card(driver, ".btn-copy-account", ".btn-copy-password")
         if r:
-            logger.info(f"  id.btvda.top [data_clipboard] → {len(r)} 条")
+            r = enrich_country_time(driver, r)
+            logger.info(f"  id.btvda.top [card-by-card] → {len(r)} 条")
             return dedup(r)
 
-        r = click_all_copy_btns(driver)
-        r = enrich_country_time(driver, r)
-        if r:
-            logger.info(f"  id.btvda.top [clipboard] → {len(r)} 条")
-            return dedup(r)
-
-        r = from_inputs(driver)
-        if r:
-            logger.info(f"  id.btvda.top [inputs] → {len(r)} 条")
-            return dedup(r)
-
+        # 兜底
         r = generic_parse(driver)
         logger.info(f"  id.btvda.top [generic] → {len(r)} 条")
         return dedup(r)
-
     except Exception as ex:
         logger.error(f"  id.btvda.top error: {ex}")
         return []
@@ -836,7 +865,7 @@ return inputs.map(function(i){ return {type:i.type,val:(i.value||'').slice(0,30)
 
 def crawl_bocchi2b(driver) -> list:
     """
-    id.bocchi2b.top — 有弹窗，同 btvda 结构
+    id.bocchi2b.top — 同 btvda 结构，有弹窗需多轮关闭。
     """
     url = "https://id.bocchi2b.top/"
     try:
@@ -853,27 +882,15 @@ def crawl_bocchi2b(driver) -> list:
         scroll(driver, n=12)
         time.sleep(2)
 
-        page_html = driver.page_source
-        r = strategy_data_clipboard(page_html)
+        r = click_card_by_card(driver, ".btn-copy-account", ".btn-copy-password")
         if r:
-            logger.info(f"  bocchi2b [data_clipboard] → {len(r)} 条")
-            return dedup(r)
-
-        r = click_all_copy_btns(driver)
-        r = enrich_country_time(driver, r)
-        if r:
-            logger.info(f"  bocchi2b [clipboard] → {len(r)} 条")
-            return dedup(r)
-
-        r = from_inputs(driver)
-        if r:
-            logger.info(f"  bocchi2b [inputs] → {len(r)} 条")
+            r = enrich_country_time(driver, r)
+            logger.info(f"  bocchi2b [card-by-card] → {len(r)} 条")
             return dedup(r)
 
         r = generic_parse(driver)
         logger.info(f"  bocchi2b [generic] → {len(r)} 条")
         return dedup(r)
-
     except Exception as ex:
         logger.error(f"  bocchi2b error: {ex}")
         return []
@@ -956,8 +973,8 @@ def crawl_all():
                             existing["country"] = p["country"]
                     else:
                         # 账号相同密码不同：保留先抓到的，打日志
-                        logger.warning(
-                            f"  ⚠️  密码冲突 [{e}]: "
+                        logger.debug(
+                            f"  密码冲突 [{e}]: "
                             f"{existing.get('source')}={existing_pw!r} 保留 | "
                             f"{site['name']}={pw!r} 舍弃"
                         )

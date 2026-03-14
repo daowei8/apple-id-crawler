@@ -682,35 +682,41 @@ def parse_vue_accounts(raw_list: list, site_name="") -> list:
     for item in raw_list:
         if not isinstance(item, dict):
             continue
-        # 兼容多种字段名
-        email = (item.get("email") or item.get("account") or
-                 item.get("username") or item.get("user") or "").strip().lower()
-        pw = (item.get("password") or item.get("pwd") or
-              item.get("pass") or item.get("passwd") or "").strip()
-        # 处理 unicode 转义
+        # 邮箱：兼容 email / username / account / user
+        email = str(item.get("email") or item.get("username") or
+                    item.get("account") or item.get("user") or "").strip().lower()
+        # 密码
+        pw = str(item.get("password") or item.get("pwd") or
+                 item.get("pass") or item.get("passwd") or "").strip()
+        # 处理 unicode 转义（如 \u0026 → &）
         try:
             if "\\u" in pw or "%u" in pw:
                 pw = pw.encode("raw_unicode_escape").decode("unicode_escape")
         except Exception:
             pass
-        status = item.get("status", "正常")
-        country = item.get("country", "") or item.get("region", "") or item.get("area", "")
+        # status：int 1=正常/0=异常，str "正常"/"异常"
+        raw_status = item.get("status", 1)
+        if isinstance(raw_status, int):
+            status_ok = raw_status == 1
+        else:
+            status_ok = not bad(str(raw_status))
+        # country：idshare001/btvda 的 country 字段有时存的是状态文字
+        # 只有出现国家关键词才用，否则默认美国
+        raw_country = str(item.get("country") or item.get("region") or item.get("area") or "")
+        country = find_country(raw_country) or "美国"
+
         if not email or "@" not in email:
-            logger.debug(f"  {site_name} 过滤-无邮箱: {item}")
             continue
         if not pw:
-            logger.debug(f"  {site_name} 过滤-无密码: {item}")
             continue
         if not is_valid_email(email):
-            logger.debug(f"  {site_name} 过滤-邮箱域名不在白名单: {email}")
             continue
-        if bad(status):
-            logger.debug(f"  {site_name} 过滤-状态异常: {status}")
+        if not status_ok:
             continue
         results.append({
             "email": email, "password": pw, "status": "正常",
-            "checked_at": item.get("checked_at", "") or item.get("time", "") or item.get("update_time", ""),
-            "country": country or "美国",
+            "checked_at": str(item.get("time") or item.get("checked_at") or item.get("update_time") or ""),
+            "country": country,
         })
     return results
 

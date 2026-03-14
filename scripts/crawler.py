@@ -635,8 +635,11 @@ def extract_from_vue_api(driver, wait_secs=15, site_name="") -> list:
             data = call.get("data")
             # 格式1：直接 list（idshare001/btvda）
             if isinstance(data, list) and len(data) > 0:
-                first = data[0]
-                if isinstance(first, dict) and (first.get("email") or first.get("account")):
+                first = data[0] if data else {}
+                # 只要是包含字符串字段的dict列表就接受
+                if isinstance(first, dict) and any(
+                    isinstance(v, str) for v in first.values()
+                ):
                     return data
             # 格式2：{id:[...]} 或 {accounts:[...]}
             if isinstance(data, dict):
@@ -665,23 +668,48 @@ def extract_from_vue_api(driver, wait_secs=15, site_name="") -> list:
     return []
 
 
-def parse_vue_accounts(raw_list: list) -> list:
+def parse_vue_accounts(raw_list: list, site_name="") -> list:
     """把 API 返回的账号列表转换为标准格式"""
     results = []
+    if not raw_list:
+        return results
+    # 诊断：打印第一条原始数据的字段
+    if raw_list:
+        first = raw_list[0]
+        logger.info(f"  {site_name} API数据样本字段: {list(first.keys()) if isinstance(first, dict) else type(first)}")
+        if isinstance(first, dict):
+            logger.info(f"  {site_name} 第一条: {dict(list(first.items())[:6])}")
     for item in raw_list:
-        email = (item.get("email") or item.get("account") or "").strip().lower()
-        pw = (item.get("password") or item.get("pwd") or "").strip()
-        # 处理 unicode 转义（\u0026 → &）
-        pw = pw.encode().decode("unicode_escape") if "\\u" in pw else pw
+        if not isinstance(item, dict):
+            continue
+        # 兼容多种字段名
+        email = (item.get("email") or item.get("account") or
+                 item.get("username") or item.get("user") or "").strip().lower()
+        pw = (item.get("password") or item.get("pwd") or
+              item.get("pass") or item.get("passwd") or "").strip()
+        # 处理 unicode 转义
+        try:
+            if "\\u" in pw or "%u" in pw:
+                pw = pw.encode("raw_unicode_escape").decode("unicode_escape")
+        except Exception:
+            pass
         status = item.get("status", "正常")
-        country = item.get("country", "")
-        if not is_valid_email(email) or not pw:
+        country = item.get("country", "") or item.get("region", "") or item.get("area", "")
+        if not email or "@" not in email:
+            logger.debug(f"  {site_name} 过滤-无邮箱: {item}")
+            continue
+        if not pw:
+            logger.debug(f"  {site_name} 过滤-无密码: {item}")
+            continue
+        if not is_valid_email(email):
+            logger.debug(f"  {site_name} 过滤-邮箱域名不在白名单: {email}")
             continue
         if bad(status):
+            logger.debug(f"  {site_name} 过滤-状态异常: {status}")
             continue
         results.append({
             "email": email, "password": pw, "status": "正常",
-            "checked_at": item.get("checked_at", "") or item.get("time", ""),
+            "checked_at": item.get("checked_at", "") or item.get("time", "") or item.get("update_time", ""),
             "country": country or "美国",
         })
     return results
@@ -748,7 +776,7 @@ def crawl_idshare001(driver) -> list:
         raw = extract_from_vue_api(driver, wait_secs=15, site_name="idshare001")
 
     logger.info(f"  idshare001 API拦截到 {len(raw)} 条原始数据")
-    results = parse_vue_accounts(raw)
+    results = parse_vue_accounts(raw, "idshare001")
     logger.info(f"  idshare001 抓到: {len(results)}")
     return dedup(results)
 
@@ -957,7 +985,7 @@ def crawl_id_btvda_top(driver) -> list:
 
         raw = extract_from_vue_api(driver, wait_secs=15, site_name="btvda")
         logger.info(f"  btvda API拦截到 {len(raw)} 条原始数据")
-        results = parse_vue_accounts(raw)
+        results = parse_vue_accounts(raw, "btvda")
         logger.info(f"  id.btvda.top 抓到: {len(results)}")
         return dedup(results)
     except Exception as ex:

@@ -628,12 +628,24 @@ def crawl_idshare001(driver) -> list:
             pass
     close_popups(driver)
     time.sleep(1)
+    # 等待卡片渲染（Vue 渲染需要时间）
+    try:
+        WebDriverWait(driver, 15).until(
+            lambda d: len(d.find_elements(By.CSS_SELECTOR,
+                "div.bg-white, .account-card, .__cf_email__")) > 0)
+    except Exception:
+        pass
     scroll(driver, n=8)
-    time.sleep(1)
+    time.sleep(2)
 
     # 注入剪贴板钩子
     driver.execute_script(HOOK_JS)
     time.sleep(0.3)
+
+    # 诊断
+    n_cf = len(driver.find_elements(By.CSS_SELECTOR, ".__cf_email__"))
+    n_bg = len(driver.find_elements(By.CSS_SELECTOR, "div.bg-white"))
+    logger.info(f"  idshare001 __cf_email__:{n_cf} bg-white:{n_bg}")
 
     # 静态解析页面：邮箱解码，找到每张卡片
     soup = BeautifulSoup(driver.page_source, "lxml")
@@ -898,16 +910,74 @@ def crawl_id_btvda_top(driver) -> list:
         pw_btns   = driver.find_elements(By.CSS_SELECTOR, ".btn-copy-password")
         logger.info(f"  btvda 账号按钮:{len(acct_btns)} 密码按钮:{len(pw_btns)}")
 
-        results = []
-        seen = set()
-        count = min(len(acct_btns), len(pw_btns))
+        # 方法1：从Vue实例直接读数据（最可靠）
+        results = driver.execute_script("""
+var out = [], seen = {};
+document.querySelectorAll('.account-card').forEach(function(card) {
+    // 尝试Vue3实例
+    var vm = card._vei || card.__vueParentComponent;
+    if(!vm && card.__vue__) vm = card.__vue__;
+    
+    // 从卡片内的按钮找Vue实例
+    if(!vm) {
+        var btns = card.querySelectorAll('button');
+        for(var i=0; i<btns.length; i++) {
+            var bvm = btns[i].__vueParentComponent || btns[i].__vue__;
+            if(bvm) { vm = bvm; break; }
+        }
+    }
+    
+    var email = '', pw = '', country = '';
+    
+    // 从Vue state读
+    if(vm) {
+        var state = vm.setupState || (vm.data && vm.data()) || {};
+        var props = vm.props || {};
+        email = (state.account||state.email||state.username||
+                 props.account||props.email||props.username||'').toLowerCase();
+        pw = state.password||state.pwd||state.pass||
+             props.password||props.pwd||props.pass||'';
+    }
+    
+    // Vue读不到，从显示文本猜
+    if(!email || !pw) {
+        var badge = card.querySelector('.country-badge');
+        country = badge ? (badge.innerText||'').trim() : '';
+        // 账号/密码只能点击获取，这里跳过
+        return;
+    }
+    
+    var badge = card.querySelector('.country-badge');
+    country = badge ? (badge.innerText||'').trim() : '';
+    
+    if(email && pw && email.includes('@') && !seen[email]) {
+        seen[email] = 1;
+        out.push({email: email, password: pw, country: country, checked_at: ''});
+    }
+});
+return out;
+        """)
+        
+        if results:
+            parsed = []
+            for d in results:
+                e = (d.get("email","") or "").lower().strip()
+                pw = (d.get("password","") or "").strip()
+                country = find_country(d.get("country","")) or "美国"
+                if is_valid_email(e) and pw and "@" not in pw and 4 <= len(pw) <= 64:
+                    parsed.append({"email": e, "password": pw, "status": "正常",
+                                    "checked_at": "", "country": country})
+            if parsed:
+                logger.info(f"  id.btvda.top [vue-state] → {len(parsed)} 条")
+                return dedup(parsed)
 
+        # 方法2：点击拦截（CDP已预注入）
+        parsed2 = []
+        seen2 = set()
+        count = min(len(acct_btns), len(pw_btns))
         for i in range(count):
             try:
-                ab = acct_btns[i]
-                pb = pw_btns[i]
-
-                # 点账号按钮，拦截邮箱
+                ab, pb = acct_btns[i], pw_btns[i]
                 before = driver.execute_script("return (window.__copied||[]).length;")
                 driver.execute_script("arguments[0].scrollIntoView({block:'center'});", ab)
                 driver.execute_script("arguments[0].click();", ab)
@@ -918,8 +988,6 @@ def crawl_id_btvda_top(driver) -> list:
                 email = copied[-1].strip().lower()
                 if not is_valid_email(email):
                     continue
-
-                # 点密码按钮，拦截密码
                 before2 = driver.execute_script("return (window.__copied||[]).length;")
                 driver.execute_script("arguments[0].click();", pb)
                 time.sleep(0.2)
@@ -927,31 +995,17 @@ def crawl_id_btvda_top(driver) -> list:
                 if len(copied2) <= before2:
                     continue
                 pw = copied2[-1].strip()
-                if not pw or "@" in pw or len(pw) < 4:
+                if not pw or "@" in pw or not 4 <= len(pw) <= 64:
                     continue
-
-                # 从卡片容器读国家
-                country = driver.execute_script("""
-var btn = arguments[0];
-var card = btn.closest('.account-card') || btn.parentElement;
-while(card && card !== document.body) {
-    var badge = card.querySelector('.country-badge');
-    if(badge) return (badge.innerText||'').trim();
-    card = card.parentElement;
-}
-return '';
-                """, ab)
-                country = find_country(country) or ("美国" if country and ("美" in country or "US" in country) else "")
-
-                if email not in seen:
-                    seen.add(email)
-                    results.append({"email": email, "password": pw, "status": "正常",
-                                     "checked_at": "", "country": country})
+                if email not in seen2:
+                    seen2.add(email)
+                    parsed2.append({"email": email, "password": pw,
+                                     "status": "正常", "checked_at": "", "country": "美国"})
             except Exception:
                 continue
 
-        logger.info(f"  id.btvda.top [card-by-card] → {len(results)} 条")
-        return dedup(results)
+        logger.info(f"  id.btvda.top [clipboard] → {len(parsed2)} 条")
+        return dedup(parsed2)
     except Exception as ex:
         logger.error(f"  id.btvda.top error: {ex}")
         return []
@@ -993,14 +1047,53 @@ def crawl_bocchi2b(driver) -> list:
             logger.info(f"  bocchi2b [requests] → {len(r)} 条")
             return dedup(r)
     
-    # Selenium（有弹窗需关闭）
+    # Selenium（等待按钮出现）
     try:
         driver.get(url)
         time.sleep(5)
         for _ in range(3):
             close_popups(driver)
             time.sleep(0.5)
-        r = parse_bocchi(driver.page_source)
+        # 等待 copyToClipboard 按钮出现
+        try:
+            WebDriverWait(driver, 10).until(
+                lambda d: "copyToClipboard" in d.page_source or
+                          len(d.find_elements(By.ID, "copy-username")) > 0)
+        except Exception:
+            pass
+        page = driver.page_source
+        # 诊断
+        import_count = page.count("copyToClipboard")
+        logger.info(f"  bocchi2b page_source: copyToClipboard出现{import_count}次, 长度={len(page)}")
+        r = parse_bocchi(page)
+        # 兜底：直接从DOM读
+        if not r:
+            try:
+                data = driver.execute_script(r"""
+var results = [];
+var btns = Array.from(document.querySelectorAll('button[onclick*="copyToClipboard"]'));
+for(var i=0; i<btns.length-1; i+=2) {
+    var a = btns[i].getAttribute('onclick').match(/copyToClipboard\('([^']+)'\)/);
+    var b = btns[i+1].getAttribute('onclick').match(/copyToClipboard\('([^']+)'\)/);
+    if(a && b) results.push({email: a[1], password: b[1]});
+}
+var u = document.getElementById('copy-username');
+var p = document.getElementById('copy-password');
+if(u && p) {
+    var um = (u.getAttribute('onclick')||'').match(/copyToClipboard\('([^']+)'\)/);
+    var pm = (p.getAttribute('onclick')||'').match(/copyToClipboard\('([^']+)'\)/);
+    if(um && pm) results.push({email: um[1], password: pm[1]});
+}
+return results;
+                """)
+                for d in (data or []):
+                    email = (d.get("email","") or "").lower().strip()
+                    pw = (d.get("password","") or "").strip()
+                    if is_valid_email(email) and pw and "@" not in pw:
+                        r.append({"email": email, "password": pw,
+                                   "status": "正常", "checked_at": "", "country": "美国"})
+            except Exception as ex2:
+                logger.debug(f"  bocchi2b JS读取: {ex2}")
         logger.info(f"  bocchi2b [selenium] → {len(r)} 条")
         return dedup(r)
     except Exception as ex:

@@ -316,7 +316,6 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
     共享 Apple ID
   </div>
   <div class="nav-cnt">共 <b id="hTotal">-</b> 个账号 · <span id="hUpdated" style="font-size:11px;opacity:0.7"></span></div>
-  <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="切换主题">🌙</button>
   <a class="buy-btn" href="https://3335.eu.cc" target="_blank" rel="noopener">🛒 购买海外账号</a>
 </nav>
 
@@ -438,17 +437,13 @@ function closeLb(){
 }
 
 function initTheme(){
-  const s=localStorage.getItem('aid-theme');
-  const p=matchMedia('(prefers-color-scheme:light)').matches?'light':'dark';
-  applyTheme(s||p,false);
-}
-function applyTheme(t,save=true){
-  document.documentElement.setAttribute('data-theme',t);
-  document.getElementById('themeBtn').textContent=t==='dark'?'🌙':'☀️';
-  if(save)localStorage.setItem('aid-theme',t);
-}
-function toggleTheme(){
-  applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark');
+  // 跟随系统颜色主题，监听变化自动切换
+  function applySystem(){
+    const t=matchMedia('(prefers-color-scheme:light)').matches?'light':'dark';
+    document.documentElement.setAttribute('data-theme',t);
+  }
+  applySystem();
+  matchMedia('(prefers-color-scheme:light)').addEventListener('change',applySystem);
 }
 
 async function loadData(){

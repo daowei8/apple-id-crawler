@@ -2,15 +2,20 @@
 """
 Apple ID 共享账号爬虫 v8
 6个站点，按固定顺序：
-1. idshare001.me/goso.html  → click_all_copy_btns（旧版有效逻辑）
-2. idfree.top               → strategy_data_clipboard（id精确配对）
-3. ccbaohe.com/appleID      → strategy_mailto_onclick
-4. tkbaohe.com/Shadowrocket → strategy_mailto_onclick
-5. id.btvda.top             → strategy_data_clipboard（id精确配对）+ 诊断
-6. id.bocchi2b.top          → strategy_data_clipboard（id精确配对）+ 诊断
+1. idfree.top               → strategy_data_clipboard（id精确配对）
+2. ccbaohe.com/appleID      → strategy_mailto_onclick（mailto解码邮箱 + onclick copy密码）
+3. tkbaohe.com/Shadowrocket → strategy_mailto_onclick（同 ccbaohe 结构）
+4. id.btvda.top             → 直接请求 API（appleapi.omofunz.com/api/data，返回list）
+5. id.bocchi2b.top          → API拦截（fetch/XHR拦截，返回list）
+6. idshare001.me/goso.html  → 直接请求 API（/node/getid.php，密码1分钟更新，排最后）
 
-严格邮箱域名白名单，只保留真实邮箱。
-去重：账号+密码都相同才去重；账号相同密码不同时打警告日志保留先抓到的。
+解析策略：
+- ccbaohe/tkbaohe：Cloudflare 保护邮箱（data-cfemail解码）+ onclick copy() 取密码
+- btvda/bocchi2b/idshare001：Vue3 应用，数据从 API 接口拉取，直接解析JSON
+  API格式：list [{username/email, password, status(int), country, time}]
+
+邮箱白名单：icloud/gmail/outlook/hotmail/qq/163/yahoo/proton/email.com 等
+去重：账号+密码都相同才去重；账号相同密码不同时静默保留先抓到的
 """
 
 import re, json, time, hashlib, logging, os

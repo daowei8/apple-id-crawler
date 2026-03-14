@@ -459,7 +459,7 @@ async function loadData(){
   }
 }
 function init(data){
-  const SITE_ORDER=['idshare001.me','idfree.top','139.196.183.52','free.iosapp.icu','app.iosr.cn','shadowrocket.best','ccbaohe.com/appleID','tkbaohe.com','id.btvda.top','id.bocchi2b.top'];
+  const SITE_ORDER=['idfree.top','ccbaohe.com/appleID','tkbaohe.com','id.btvda.top','id.bocchi2b.top','idshare001.me'];
   all=(data.accounts||[]).sort((a,b)=>{
     const ra=SITE_ORDER.indexOf(a.source||''), rb=SITE_ORDER.indexOf(b.source||'');
     const sa=ra<0?99:ra, sb=rb<0?99:rb;

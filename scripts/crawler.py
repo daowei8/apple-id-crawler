@@ -497,64 +497,93 @@ def fetch_html(url: str, timeout: int = 12) -> str:
 # ══════════════════════════════════════════
 
 def strategy_data_clipboard(html: str) -> list:
-    """data-clipboard-text 按钮（139.196.183.52 等）"""
+    """
+    data-clipboard-text 按钮解析。
+    配对策略（按优先级）：
+    1. id 精确配对：username_N 对应 password_N（最可靠）
+    2. 类名配对：.copy-btn（邮箱）对应 .copy-pass-btn（密码）
+    3. 按钮颜色：btn-primary（邮箱）对应 btn-success（密码）
+    绝不跨卡片 fallback 取值
+    """
     soup = BeautifulSoup(html, "lxml")
     results = []
 
+    # 方法1：直接用 id 精确配对（username_N → password_N）
+    seen = set()
+    for btn in soup.select("button[id^='username_'], a[id^='username_']"):
+        uid_n = btn.get("id", "")[9:]  # "username_43" → "43"
+        email = btn.get("data-clipboard-text", "").strip().lower()
+        if not email or "@" not in email or email in seen:
+            continue
+        pw_btn = soup.select_one(f"#password_{uid_n}")
+        if not pw_btn:
+            continue
+        pw = pw_btn.get("data-clipboard-text", "").strip()
+        if not pw or "@" in pw or len(pw) < 4:
+            continue
+        # 找该按钮所在的 card-body 取时间/国家
+        card = btn.find_parent(class_="card-body") or btn.find_parent(class_="card")
+        card_text = card.get_text(" ", strip=True) if card else ""
+        country = ""
+        if card:
+            for anc in card.parents:
+                country = find_country(anc.get_text(" ", strip=True)[:300])
+                if country:
+                    break
+        seen.add(email)
+        results.append({
+            "email": email,
+            "password": pw,
+            "status": "正常",
+            "checked_at": find_time(card_text),
+            "country": country,
+        })
+
+    if results:
+        return results
+
+    # 方法2：逐卡片解析（.card-body 为边界，严格不跨卡）
     cards = soup.select(".card-body")
     if not cards:
+        # 找所有包含 data-clipboard-text 按钮的最小公共父元素
         seen_parents = []
         for btn in soup.select("[data-clipboard-text]"):
             p = btn.find_parent(class_=lambda c: c and any(
-                k in c for k in ("col", "card", "item", "account")))
+                k in c for k in ("col-", "card", "item", "account")))
             if p and p not in seen_parents:
                 seen_parents.append(p)
-        cards = seen_parents if seen_parents else [soup]
+        cards = seen_parents if seen_parents else []
 
     for card in cards:
+        # 严格：只在本卡片内找邮箱按钮和密码按钮，不跨卡
         email = ""
-        for sel in [".copy-btn", "[id^='username_']",
+        email_btn = None
+        for sel in [".copy-btn",
                     "button.btn-primary[data-clipboard-text]",
                     "a.btn-primary[data-clipboard-text]"]:
-            btn = card.select_one(sel)
-            if btn:
-                v = btn.get("data-clipboard-text", "").strip().lower()
+            b = card.select_one(sel)
+            if b:
+                v = b.get("data-clipboard-text", "").strip().lower()
                 if v and "@" in v:
                     email = v
+                    email_btn = b
                     break
-        if not email:
-            for btn in card.select("[data-clipboard-text]"):
-                v = btn.get("data-clipboard-text", "").strip().lower()
-                if v and "@" in v:
-                    email = v
-                    break
-        if not email:
-            cf = card.select_one(".__cf_email__")
-            if cf:
-                encoded = cf.get("data-cfemail", "")
-                if encoded:
-                    email = decode_cfemail(encoded).lower()
-                elif cf.get("href", "").startswith("mailto:"):
-                    email = cf["href"][7:].lower()
-        if not email or "@" not in email:
+
+        if not email or "@" not in email or email in seen:
             continue
 
         password = ""
-        for sel in [".copy-pass-btn", "[id^='password_']",
+        # 密码按钮：必须和邮箱按钮在同一个卡片内
+        for sel in [".copy-pass-btn",
                     "button.btn-success[data-clipboard-text]",
                     "a.btn-success[data-clipboard-text]"]:
-            btn = card.select_one(sel)
-            if btn:
-                v = btn.get("data-clipboard-text", "").strip()
-                if v and len(v) >= 4 and "@" not in v:
-                    password = v
-                    break
-        if not password:
-            for btn in card.select("[data-clipboard-text]"):
-                v = btn.get("data-clipboard-text", "").strip()
+            b = card.select_one(sel)
+            if b:
+                v = b.get("data-clipboard-text", "").strip()
                 if v and "@" not in v and 4 <= len(v) <= 64:
                     password = v
                     break
+
         if not password:
             continue
 
@@ -563,17 +592,16 @@ def strategy_data_clipboard(html: str) -> list:
         if badge and bad(badge.get_text(strip=True)):
             continue
 
-        # 国家：从祖先元素找
         country = ""
         for anc in card.parents:
-            ct = anc.get_text(" ", strip=True)[:300]
-            country = find_country(ct)
+            country = find_country(anc.get_text(" ", strip=True)[:300])
             if country:
                 break
 
+        seen.add(email)
         results.append({
-            "email": email.lower().strip(),
-            "password": password.strip(),
+            "email": email,
+            "password": password,
             "status": "正常",
             "checked_at": find_time(card_text),
             "country": country,
@@ -822,8 +850,11 @@ def crawl_idfree_top(driver) -> list:
     scroll(driver, n=10)
     time.sleep(2)
 
-    results = click_all_copy_btns(driver)
-    results = enrich_country_time(driver, results)
+    # 先读 data-clipboard-text 属性（最准确，不依赖剪贴板事件）
+    results = strategy_data_clipboard(driver.page_source)
+    if not results:
+        results = click_all_copy_btns(driver)
+        results = enrich_country_time(driver, results)
     if not results:
         results = js_full_scan(driver)
     if not results:
@@ -1073,25 +1104,32 @@ def crawl_tkbaohe(driver) -> list:
 
 
 def crawl_id_btvda_top(driver) -> list:
-    """id.btvda.top — 剪贴板方式（原版有效）"""
+    """
+    id.btvda.top — 结构同 139.196：
+    button#username_N[data-clipboard-text]=邮箱
+    button#password_N[data-clipboard-text]=密码
+    用 strategy_data_clipboard 按 id 精确配对，绝不错位
+    """
     url = "https://id.btvda.top/"
-    # requests 先试静态
-    html = fetch_html(url)
-    if html and "@" in html:
-        r = strategy_data_clipboard(html)
-        if r:
-            logger.info(f"  id.btvda.top [requests] → {len(r)} 条")
-            return dedup(r)
-
     try:
         driver.get(url)
         time.sleep(6)
         close_popups(driver)
         scroll(driver, n=15)
         time.sleep(2)
-
-        r = click_all_copy_btns(driver)
-        r = enrich_country_time(driver, r)
+        # 诊断：打印前6个 data-clipboard-text 按钮的结构
+        try:
+            diag = driver.execute_script("""
+var btns = Array.from(document.querySelectorAll('[data-clipboard-text]')).slice(0,6);
+return btns.map(function(b){
+    return {id: b.id||'', cls: b.className||'', val: (b.getAttribute('data-clipboard-text')||'').slice(0,40)};
+});
+            """)
+            logger.info(f"  btvda 按钮结构: {diag}")
+        except Exception:
+            pass
+        # 用 strategy_data_clipboard 读 data-clipboard-text 属性（id精确配对）
+        r = strategy_data_clipboard(driver.page_source)
         if not r:
             r = js_full_scan(driver)
         if not r:
@@ -1195,43 +1233,26 @@ def recheck_email_from_site(driver, site_name: str, target_email: str) -> str:
             return find_pw(pairs)
 
         elif site_name in ("id.btvda.top",):
-            # 主方法是 click_all_copy_btns，备用：requests + strategy_data_clipboard
-            html = fetch_html("https://id.btvda.top/")
-            if html and "@" in html:
-                pairs = strategy_data_clipboard(html) or parse_text(html)
-                pw = find_pw(pairs)
-                if pw:
-                    return pw
-            # 再试 js_full_scan
+            # 备用：Selenium 加载后用 js_full_scan（主方法是 strategy_data_clipboard）
             driver.get("https://id.btvda.top/")
             time.sleep(6); close_popups(driver); scroll(driver, n=15); time.sleep(2)
-            pairs = js_full_scan(driver)
+            pairs = js_full_scan(driver) or from_inputs(driver)
             return find_pw(pairs)
 
         elif site_name in ("id.bocchi2b.top",):
-            html = fetch_html("https://id.bocchi2b.top/")
-            if html and "@" in html:
-                pairs = strategy_data_clipboard(html) or parse_text(html)
-                pw = find_pw(pairs)
-                if pw:
-                    return pw
+            # 备用：js_full_scan（主方法是 strategy_data_clipboard）
             driver.get("https://id.bocchi2b.top/")
             time.sleep(6)
             for _ in range(4): close_popups(driver); time.sleep(0.5)
             scroll(driver, n=12); time.sleep(2)
-            pairs = js_full_scan(driver)
+            pairs = js_full_scan(driver) or from_inputs(driver)
             return find_pw(pairs)
 
         elif site_name in ("shadowrocket.best",):
-            html = fetch_html("https://shadowrocket.best/")
-            if html and "@" in html:
-                pairs = strategy_data_clipboard(html) or parse_text(html)
-                pw = find_pw(pairs)
-                if pw:
-                    return pw
+            # 备用：js_full_scan（主方法是 strategy_data_clipboard）
             driver.get("https://shadowrocket.best/")
             time.sleep(6); close_popups(driver); scroll(driver, n=20); time.sleep(2)
-            pairs = js_full_scan(driver)
+            pairs = js_full_scan(driver) or from_inputs(driver)
             return find_pw(pairs)
 
         elif site_name in ("139.196.183.52",):

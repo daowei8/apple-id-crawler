@@ -582,12 +582,16 @@ def strategy_mailto_onclick(html: str) -> list:
 # 拦截 fetch/XHR 的 JS 代码（页面加载前注入）
 INTERCEPT_JS = r"""
 window.__api_responses = window.__api_responses || [];
+window.__api_all = window.__api_all || [];
 // 拦截 fetch
 const _origFetch = window.fetch;
 window.fetch = function() {
-    return _origFetch.apply(this, arguments).then(function(resp) {
+    var args = arguments;
+    return _origFetch.apply(this, args).then(function(resp) {
         try {
+            var url = (args[0] && args[0].url) || args[0] || '';
             resp.clone().json().then(function(data) {
+                window.__api_all.push({url: String(url), data: data});
                 if(data && (data.id || data.accounts || data.data)) {
                     window.__api_responses.push(data);
                 }
@@ -604,9 +608,11 @@ XMLHttpRequest.prototype.open = function(method, url) {
     return _origOpen.apply(this, arguments);
 };
 XMLHttpRequest.prototype.send = function() {
+    var self = this;
     this.addEventListener('load', function() {
         try {
-            var data = JSON.parse(this.responseText);
+            var data = JSON.parse(self.responseText);
+            window.__api_all.push({url: String(self.__url||''), data: data});
             if(data && (data.id || data.accounts || data.data)) {
                 window.__api_responses.push(data);
             }
@@ -617,32 +623,39 @@ XMLHttpRequest.prototype.send = function() {
 """
 
 
-def extract_from_vue_api(driver, wait_secs=15) -> list:
+def extract_from_vue_api(driver, wait_secs=15, site_name="") -> list:
     """
-    注入 fetch/XHR 拦截钩子，等待 Vue 从 API 拉取数据，
-    直接返回账号列表。
-    数据格式：{ "id": [{email, password, status, country}] }
+    等待 Vue 从 API 拉取数据，返回账号列表。
+    同时打印所有 API 请求的诊断信息。
     """
-    # 先注入拦截器
     driver.execute_script(INTERCEPT_JS)
     
-    # 等待数据到来
-    import time as _time
-    deadline = _time.time() + wait_secs
-    while _time.time() < deadline:
-        _time.sleep(0.5)
+    deadline = time.time() + wait_secs
+    while time.time() < deadline:
+        time.sleep(0.5)
+        # 优先从已过滤的响应里找
         responses = driver.execute_script("return window.__api_responses || []")
         for resp in responses:
-            # 格式1: {id: [{email, password, ...}]}
             accounts = resp.get("id") or resp.get("accounts") or []
             if isinstance(accounts, list) and len(accounts) > 0:
                 if accounts[0].get("email") or accounts[0].get("account"):
                     return accounts
-            # 格式2: {data: {id: [...]}}
             if isinstance(resp.get("data"), dict):
                 accounts = resp["data"].get("id") or resp["data"].get("accounts") or []
                 if isinstance(accounts, list) and len(accounts) > 0:
                     return accounts
+    
+    # 超时：打印所有API请求诊断
+    all_calls = driver.execute_script("return window.__api_all || []")
+    if all_calls:
+        logger.info(f"  {site_name} 拦截到 {len(all_calls)} 个API请求:")
+        for call in all_calls[:5]:
+            url = call.get("url","")[:80]
+            data = call.get("data",{})
+            keys = list(data.keys()) if isinstance(data, dict) else type(data).__name__
+            logger.info(f"    URL={url} keys={keys}")
+    else:
+        logger.info(f"  {site_name} 没有拦截到任何API请求")
     return []
 
 
@@ -906,7 +919,7 @@ def crawl_id_btvda_top(driver) -> list:
         time.sleep(4)
         close_popups(driver)
 
-        raw = extract_from_vue_api(driver, wait_secs=15)
+        raw = extract_from_vue_api(driver, wait_secs=15, site_name="btvda")
         logger.info(f"  btvda API拦截到 {len(raw)} 条原始数据")
         results = parse_vue_accounts(raw)
         logger.info(f"  id.btvda.top 抓到: {len(results)}")
@@ -960,7 +973,7 @@ def crawl_bocchi2b(driver) -> list:
             close_popups(driver)
             time.sleep(0.5)
 
-        raw = extract_from_vue_api(driver, wait_secs=12)
+        raw = extract_from_vue_api(driver, wait_secs=12, site_name="bocchi2b")
         if raw:
             logger.info(f"  bocchi2b API拦截到 {len(raw)} 条")
             results = parse_vue_accounts(raw)

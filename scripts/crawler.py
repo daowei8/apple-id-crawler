@@ -43,6 +43,7 @@ VALID_DOMAINS = {
     "qq.com", "163.com", "126.com",
     "yahoo.com", "yahoo.co.jp",
     "protonmail.com", "proton.me",
+    "email.com",
 }
 
 COUNTRY_RE = re.compile(
@@ -618,13 +619,35 @@ def crawl_idshare001(driver) -> list:
         return []
 
     time.sleep(2)
-    for _ in range(3):
+    # 专门处理 idshare001 的入口弹窗：点"我是老玩家"跳过提示直接进账号页
+    for xpath in [
+        "//button[contains(.,'我是老玩家')]",
+        "//a[contains(.,'我是老玩家')]",
+        "//button[contains(.,'老玩家')]",
+        "//button[contains(.,'继续查看')]",
+        "//button[contains(.,'查看账号')]",
+        "//button[contains(.,'我已阅读')]",
+    ]:
+        try:
+            btn = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.XPATH, xpath)))
+            driver.execute_script("arguments[0].click();", btn)
+            logger.info(f"  idshare001 点击入口按钮: {btn.text.strip()}")
+            time.sleep(2)
+            break
+        except Exception:
+            pass
+    for _ in range(2):
         close_popups(driver)
         time.sleep(0.5)
     scroll(driver, n=10)
     time.sleep(2)
 
-    results = click_all_copy_btns(driver)
+    # idshare001 使用逐卡片点击（图二显示：点击复制账号/复制密码按钮）
+    results = click_card_by_card(driver, ".btn-copy-account", ".btn-copy-password")
+    if not results:
+        # 也可能叫其他类名，用 click_all_copy_btns 兜底
+        results = click_all_copy_btns(driver)
     results = enrich_country_time(driver, results)
 
     if not results:
@@ -706,11 +729,30 @@ def crawl_idfree_top(driver) -> list:
         return []
 
     time.sleep(2)
+    # idfree 有"我已阅读，继续查看账号"弹窗，必须点击才能显示账号
+    for xpath in [
+        "//button[contains(.,'我已阅读')]",
+        "//button[contains(.,'继续查看账号')]",
+        "//button[contains(.,'继续查看')]",
+        "//button[contains(.,'查看账号')]",
+    ]:
+        try:
+            btn = WebDriverWait(driver, 8).until(
+                EC.element_to_be_clickable((By.XPATH, xpath)))
+            driver.execute_script("arguments[0].click();", btn)
+            logger.info(f"  idfree 点击入口按钮: {btn.text.strip()}")
+            time.sleep(2)
+            break
+        except Exception:
+            pass
     close_popups(driver)
     scroll(driver, n=10)
     time.sleep(2)
 
+    # idfree 图四：账号在 input 里，有复制按钮，用 strategy_data_clipboard 或 click_card_by_card
     results = strategy_data_clipboard(driver.page_source)
+    if not results:
+        results = click_card_by_card(driver, ".btn-copy-account", ".btn-copy-password")
     if not results:
         results = click_all_copy_btns(driver)
         results = enrich_country_time(driver, results)
@@ -798,14 +840,17 @@ def click_card_by_card(driver, account_cls, password_cls) -> list:
                 continue
 
             # 找同一个卡片容器下的密码按钮
+            # 向上最多查找10层父元素，找到包含密码按钮的最小容器
             pw_btn = driver.execute_script("""
 var btn = arguments[0];
-var card = btn.closest('.card') || btn.closest('.id-card') ||
-           btn.closest('[class*="card"]') || btn.parentElement;
-while(card && card !== document.body) {
-    var pwBtn = card.querySelector(arguments[1]);
-    if(pwBtn) return pwBtn;
-    card = card.parentElement;
+var pwSel = arguments[1];
+// 先从直接父元素往上找
+var el = btn.parentElement;
+for(var i=0; i<10; i++) {
+    if(!el || el === document.body) break;
+    var pwBtn = el.querySelector(pwSel);
+    if(pwBtn && pwBtn !== btn) return pwBtn;
+    el = el.parentElement;
 }
 return null;
             """, acct_btn, password_cls)

@@ -531,19 +531,28 @@ def strategy_mailto_onclick(html: str) -> list:
         if not is_valid_email(email):
             continue
 
-        # 密码从 onclick copy('xxx')
+        # 密码从 onclick copy('xxx')：扫描卡片内所有按钮，不过滤文字
         pw = ""
-        for btn in card.select("button"):
-            txt = btn.get_text(strip=True)
-            if "密码" not in txt and "copy" not in txt.lower():
-                continue
+        email_found_order = None
+        for idx, btn in enumerate(card.select("button")):
             oc = btn.get("onclick", "")
+            if not oc:
+                continue
             m = (re.search(r"copy\('([^']{4,64})'\)", oc) or
                  re.search(r'copy\("([^"]{4,64})"\)', oc) or
                  re.search(r"copy\(&#39;([^&]{4,64})&#39;\)", oc) or
                  re.search(r"copy\(([A-Za-z0-9!@#$%^&*()\-_=+]{4,64})\)", oc))
-            if m:
-                pw = m.group(1).strip()
+            if not m:
+                continue
+            val = m.group(1).strip()
+            # 这个按钮复制的是邮箱（跳过）
+            if is_valid_email(val.lower()):
+                email_found_order = idx
+                continue
+            # 密码按钮：不含@ 且不是邮箱
+            if "@" not in val and 4 <= len(val) <= 64:
+                # 确保密码按钮在邮箱按钮之后（或者卡片内只有一个密码按钮）
+                pw = val
                 break
         if not pw:
             for btn in card.select("[data-clipboard-text]"):

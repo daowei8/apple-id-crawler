@@ -1078,12 +1078,12 @@ def crawl_bocchi2b(driver) -> list:
 # ══════════════════════════════════════════
 
 SITES = [
+    {"name": "idshare001.me",       "fn": crawl_idshare001},
     {"name": "idfree.top",          "fn": crawl_idfree_top},
     {"name": "ccbaohe.com/appleID", "fn": crawl_ccbaohe},
     {"name": "tkbaohe.com",         "fn": crawl_tkbaohe},
     {"name": "id.btvda.top",        "fn": crawl_id_btvda_top},
     {"name": "id.bocchi2b.top",     "fn": crawl_bocchi2b},
-    {"name": "idshare001.me",       "fn": crawl_idshare001},
 ]
 
 SITE_ORDER = {s["name"]: i for i, s in enumerate(SITES)}

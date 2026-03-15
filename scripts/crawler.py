@@ -30,18 +30,17 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 # 自定义 logging formatter，时间显示北京时间
-import logging as _logging
-class CSTFormatter(_logging.Formatter):
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
+
+# 日志时间显示北京时间
+class _CSTFormatter(logging.Formatter):
     def formatTime(self, record, datefmt=None):
-        from datetime import datetime, timezone, timedelta
         cst = timezone(timedelta(hours=8))
         ct = datetime.fromtimestamp(record.created, tz=cst)
         return ct.strftime('%Y-%m-%d %H:%M:%S')
-
-_handler = _logging.StreamHandler()
-_handler.setFormatter(CSTFormatter('%(asctime)s [%(levelname)s] %(message)s'))
-logging.basicConfig(level=logging.INFO, handlers=[_handler])
-logger = logging.getLogger(__name__)
+for _h in logging.root.handlers:
+    _h.setFormatter(_CSTFormatter('%(asctime)s [%(levelname)s] %(message)s'))
 
 CST = timezone(timedelta(hours=8))
 

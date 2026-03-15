@@ -315,7 +315,7 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
   <div class="nav-logo">
     共享 Apple ID
   </div>
-  <div class="nav-cnt">共 <b id="hTotal">-</b> 个账号 · <span id="hUpdated" style="font-size:11px;opacity:0.7"></span></div>
+  <div class="nav-cnt">共 <b id="hTotal">-</b> 个 · <span id="hUpdated" style="font-size:11px;opacity:0.7"></span></div>
   <a class="buy-btn" href="https://3335.eu.cc" target="_blank" rel="noopener">🛒 购买海外账号</a>
 </nav>
 
@@ -472,7 +472,7 @@ function init(data){
   const t=data.generated_at?new Date(data.generated_at):null;
   if(t){
     const mo=t.getMonth()+1,dy=t.getDate(),hr=t.getHours(),mi=String(t.getMinutes()).padStart(2,'0');
-    document.getElementById('hUpdated').textContent=mo+'/'+dy+' '+hr+':'+mi+' 更新';
+    document.getElementById('hUpdated').textContent=mo+'/'+dy+' '+hr+':'+mi;
   }
   document.getElementById('footer').innerHTML='各类海外账号应有尽有，加Q <a href="tencent://message/?uin=775060760" style="color:var(--blue);font-weight:600">775060760</a>';
   page=1;pvs={};

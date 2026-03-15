@@ -200,7 +200,7 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
   50%{transform:scale(1.08)}
 }
 .pulse-red{
-  color:#ff3b30;font-weight:800;font-size:14px;
+  color:#ff3b30 !important;font-weight:800 !important;font-size:14px !important;
   animation:pulse-scale 1.6s ease-in-out infinite;
   display:inline-block;
   letter-spacing:.2px;
@@ -498,7 +498,7 @@ function init(data){
     const mo=t.getMonth()+1,dy=t.getDate(),hr=t.getHours(),mi=String(t.getMinutes()).padStart(2,'0');
     document.getElementById('hUpdated').textContent=hr+':'+mi+' 更新';
   }
-  document.getElementById('footer').innerHTML='各类海外账号应有尽有，加Q <a href="tencent://message/?uin=775060760" style="color:var(--blue);font-weight:600">775060760</a>';
+  document.getElementById('footer').innerHTML='各类海外账号应有尽有，加Q <span id="qqNum" style="color:var(--blue);font-weight:600;cursor:pointer;border-bottom:1px dashed var(--blue)" onclick="navigator.clipboard.writeText('775060760').then(()=>{this.textContent='✓ 已复制';setTimeout(()=>this.textContent='775060760',2000)})">775060760</span>（点击复制）';
   page=1;pvs={};
   applyFilter();
 }
@@ -523,7 +523,10 @@ function render(){
     const rawTs=a.checked_at||a.updated_at||'';
     let ts='';
     if(rawTs){
-      const d=new Date(rawTs);
+      // 去掉"检测时间："等前缀，只保留 20xx-xx-xx xx:xx:xx 部分
+      const m=String(rawTs).match(/(20\d{2}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)/);
+      const clean=m?m[1]:String(rawTs);
+      const d=new Date(clean);
       if(!isNaN(d)){
         const yy=String(d.getFullYear()).slice(2);
         const mo=String(d.getMonth()+1).padStart(2,'0');
@@ -532,8 +535,6 @@ function render(){
         const mi=String(d.getMinutes()).padStart(2,'0');
         const se=String(d.getSeconds()).padStart(2,'0');
         ts=yy+'/'+mo+'/'+dy+' '+hr+':'+mi+':'+se;
-      } else {
-        ts=rawTs;
       }
     };
     const pdisplay=vis

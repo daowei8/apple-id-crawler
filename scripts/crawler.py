@@ -29,7 +29,18 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+# 自定义 logging formatter，时间显示北京时间
+import logging as _logging
+class CSTFormatter(_logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        from datetime import datetime, timezone, timedelta
+        cst = timezone(timedelta(hours=8))
+        ct = datetime.fromtimestamp(record.created, tz=cst)
+        return ct.strftime('%Y-%m-%d %H:%M:%S')
+
+_handler = _logging.StreamHandler()
+_handler.setFormatter(CSTFormatter('%(asctime)s [%(levelname)s] %(message)s'))
+logging.basicConfig(level=logging.INFO, handlers=[_handler])
 logger = logging.getLogger(__name__)
 
 CST = timezone(timedelta(hours=8))
@@ -682,6 +693,23 @@ def extract_from_vue_api(driver, wait_secs=15, site_name="") -> list:
     return []
 
 
+def _to_cst(ts: str) -> str:
+    """把 UTC 时间字符串转成北京时间（+8小时）"""
+    if not ts:
+        return ""
+    try:
+        from datetime import datetime, timedelta
+        # 尝试解析 "2026-03-15 23:03:43" 格式
+        m = re.search(r"(20\d{2}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)", ts)
+        if not m:
+            return ts
+        dt = datetime.strptime(m.group(1).replace("T", " "), "%Y-%m-%d %H:%M:%S" if ":" in m.group(1)[11:] else "%Y-%m-%d %H:%M")
+        dt_cst = dt + timedelta(hours=8)
+        return dt_cst.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return ts
+
+
 def parse_vue_accounts(raw_list: list, site_name="") -> list:
     """把 API 返回的账号列表转换为标准格式"""
     results = []
@@ -729,7 +757,7 @@ def parse_vue_accounts(raw_list: list, site_name="") -> list:
             continue
         results.append({
             "email": email, "password": pw, "status": "正常",
-            "checked_at": str(item.get("time") or item.get("checked_at") or item.get("update_time") or ""),
+            "checked_at": _to_cst(str(item.get("time") or item.get("checked_at") or item.get("update_time") or "")),
             "country": country,
         })
     return results
@@ -1138,25 +1166,16 @@ def crawl_all():
                     }
                     nc += 1
                 else:
+                    # 同一次运行内，同一邮箱出现多次：保留先抓到的站点的密码
+                    # （优先级按 SITES 顺序，先抓到的更可信）
                     existing = records[e]
-                    existing_pw = existing.get("password", "")
-                    if existing_pw == pw:
-                        # 完全一致：只更新时间/国家
-                        new_t = p.get("checked_at", "")
-                        old_t = existing.get("checked_at", "")
-                        if new_t and new_t > old_t:
-                            existing["checked_at"] = new_t
-                        if p.get("country") and not existing.get("country"):
-                            existing["country"] = p["country"]
-                    else:
-                        # 账号相同密码不同：保留先抓到的，打日志
-                        logger.debug(
-                            f"  密码冲突 [{e}]: "
-                            f"{existing.get('source')}={existing_pw!r} 保留 | "
-                            f"{site['name']}={pw!r} 舍弃"
-                        )
-                        if p.get("country") and not existing.get("country"):
-                            existing["country"] = p["country"]
+                    # 补充国家/时间（如果之前没有）
+                    if p.get("country") and not existing.get("country"):
+                        existing["country"] = p["country"]
+                    new_t = p.get("checked_at", "")
+                    old_t = existing.get("checked_at", "")
+                    if new_t and new_t > old_t:
+                        existing["checked_at"] = new_t
 
             source_stats[site["name"]] = nc
             logger.info(f"  → 新增 {nc} 条（共 {len(records)} 条）"

@@ -65,5 +65,6 @@ jobs:
           else
             COUNT=$(python -c "import json; print(json.load(open('apple_ids.json'))['total'])")
             git commit -m "🤖 自动更新: ${COUNT} 个账号 [$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M CST')]"
+            git pull --rebase origin main
             git push
           fi

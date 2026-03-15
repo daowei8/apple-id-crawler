@@ -373,9 +373,9 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
     </div>
     <!-- 操作教程折叠 -->
     <details style="margin-top:12px;border:.5px solid var(--border);border-radius:var(--r);overflow:hidden">
-      <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);list-style:none;display:flex;align-items:center;gap:6px;user-select:none;background:var(--card)">
-        📖 操作教程 &nbsp;<span style="font-size:11px;color:var(--t3);font-weight:400">（记不住请截屏保存）</span>
-        <span style="margin-left:auto;font-size:11px;color:var(--t3)">▼</span>
+      <summary style="padding:10px 14px;cursor:pointer;font-size:14px;font-weight:700;color:var(--text);list-style:none;display:flex;align-items:center;gap:7px;user-select:none;background:var(--card)">
+        <span>📖</span> 操作教程
+        <span style="margin-left:auto;font-size:11px;color:var(--t3);font-weight:400">▼</span>
       </summary>
       <div style="padding:12px 14px 14px;display:flex;flex-direction:column;gap:12px;background:var(--bg2)">
         <div>
@@ -483,7 +483,7 @@ async function loadData(){
   }
 }
 function init(data){
-  const SITE_ORDER=['idfree.top','ccbaohe.com/appleID','tkbaohe.com','id.btvda.top','id.bocchi2b.top','idshare001.me'];
+  const SITE_ORDER=['idshare001.me','idfree.top','ccbaohe.com/appleID','tkbaohe.com','id.btvda.top','id.bocchi2b.top'];
   all=(data.accounts||[]).sort((a,b)=>{
     const ra=SITE_ORDER.indexOf(a.source||''), rb=SITE_ORDER.indexOf(b.source||'');
     const sa=ra<0?99:ra, sb=rb<0?99:rb;

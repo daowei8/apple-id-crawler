@@ -498,13 +498,7 @@ function init(data){
     const mo=t.getMonth()+1,dy=t.getDate(),hr=t.getHours(),mi=String(t.getMinutes()).padStart(2,'0');
     document.getElementById('hUpdated').textContent=hr+':'+mi+' 更新';
   }
-  document.getElementById('footer').innerHTML='各类海外账号应有尽有，加Q <span id="qqCopy" style="color:var(--blue);font-weight:600;cursor:pointer;border-bottom:1px dashed var(--blue)">775060760</span>（点击复制）';
-  document.getElementById('qqCopy').addEventListener('click',function(){
-    navigator.clipboard.writeText('775060760').then(()=>{
-      this.textContent='✓ 已复制';
-      setTimeout(()=>{ this.textContent='775060760'; },2000);
-    });
-  });
+  document.getElementById('footer').innerHTML='各类海外账号应有尽有，TG：<a href="https://t.me/frankoz411" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">frankoz411</a>';
   page=1;pvs={};
   applyFilter();
 }
@@ -570,7 +564,7 @@ function render(){
     <button class="cbtn cbtn-p" onclick="cp('${esc(a.password)}','p',this,${idx})">复制密码</button>
   </div>
   <div class="rocket-tip">
-    <span class="rocket-tip-text">😤 共享随时失效，想稳定安全不锁机？ 👉</span>
+    <span class="rocket-tip-text">⚠️ 如锁定不可用，请更换，或者想安全且方便？👉</span>
     <a class="buy-id-btn" href="javascript:void(0)" onclick="openBuyId()">🔑 独享ID</a>
   </div>
   <div class="store-tip" id="st-${idx}">

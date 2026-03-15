@@ -2,8 +2,11 @@ name: Apple ID Crawler
 
 on:
   schedule:
-    - cron: "0 * * * *"   # 每1小时自动运行
+    - cron: "0 */2 * * *"   # 每2小时运行（GitHub免费账号定时任务更可靠）
+    - cron: "30 */2 * * *"  # 错开30分钟再跑一次，防止单次延迟漏掉
   workflow_dispatch:        # 支持手动触发
+  push:
+    branches: [main]        # 推送代码时也触发
 
 concurrency:
   group: crawler
@@ -62,6 +65,6 @@ jobs:
             echo "数据无变化，跳过提交"
           else
             COUNT=$(python -c "import json; print(json.load(open('apple_ids.json'))['total'])")
-            git commit -m "🤖 自动更新: ${COUNT} 个账号 [$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M CST')]"
+            git commit -m "🤖 自动更新: ${COUNT} 个账号 [$(date -u '+%Y-%m-%d %H:%M UTC')]"
             git push
           fi

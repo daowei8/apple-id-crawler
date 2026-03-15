@@ -200,9 +200,10 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
   50%{transform:scale(1.08)}
 }
 .pulse-red{
-  color:#ff3b30;font-weight:700;font-size:13px;
+  color:#ff3b30;font-weight:800;font-size:14px;
   animation:pulse-scale 1.6s ease-in-out infinite;
   display:inline-block;
+  letter-spacing:.2px;
 }
 
 @media(max-width:480px){
@@ -261,7 +262,7 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
     <div id="step-tut" class="tut-step">
       <div class="tut-header">
         <h3>📖 App Store 登录教程</h3>
-        <p class="pulse-red">🔍 图片可放大，不记得请截屏！</p>
+        <p class="pulse-red">🔍 图片可放大，记不住请截屏！</p>
       </div>
       <div class="tut-img-wrap">
         <img src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/tutorial.png"
@@ -360,7 +361,7 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
 
   <!-- 须知 & 购买说明 不折叠 -->
   <div class="info-block">
-    <h3><span>📋</span> 使用须知 &amp; 操作教程</h3>
+    <h3><span>📋</span> 使用须知</h3>
     <div class="pw">
       <strong>⚠️ 购买警告：</strong>本站只是临时借账号给你用于<strong>下载 App</strong>，至于 App 你是否会使用以及 App 内是否需要额外购买服务等与本站无关，<strong>本站不教 App 使用和提供服务！</strong><br><br>
       额外提醒：<span class="hl">TikTok 和 Shadowrocket 都不是下载就能直接使用的</span>，TikTok 有锁区规则，Shadowrocket 需<strong>自备节点服务器</strong>，同时这两个 App 都需要 iOS 12 以上系统，如果不会使用请可购买下方机场，机场里有使用教程！还不会可联系TG：frankoz411，付费一对一！<strong style="color:#ff4444">没有号的右上角购买，</strong><a href="https://pan.quark.cn/s/b3af89c26883" target="_blank" style="color:var(--orange);font-weight:700">📺 点这里看购买后登录教程（内容不全面但方法通用）</a><br><br>
@@ -370,6 +371,29 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
       <a class="alink" href="https://aff.v2ny.mom?path=register&code=iEwQYZsv" target="_blank" rel="noopener">✈️ 老牌机场 1️⃣</a>
       <a class="alink" href="http://www.fb2026.cc/#/register?code=TuoTBZxP" target="_blank" rel="noopener">✈️ 老牌机场 2️⃣</a>
     </div>
+    <!-- 操作教程折叠 -->
+    <details style="margin-top:12px;border:.5px solid var(--border);border-radius:var(--r);overflow:hidden">
+      <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);list-style:none;display:flex;align-items:center;gap:6px;user-select:none;background:var(--card)">
+        📖 操作教程 &nbsp;<span style="font-size:11px;color:var(--t3);font-weight:400">（记不住请截屏保存）</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--t3)">▼</span>
+      </summary>
+      <div style="padding:12px 14px 14px;display:flex;flex-direction:column;gap:12px;background:var(--bg2)">
+        <div>
+          <div style="font-size:12px;font-weight:600;color:var(--t2);margin-bottom:6px">① App Store 登录步骤</div>
+          <img src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/tutorial.png"
+               alt="登录教程" onclick="openLb(this.src)"
+               style="width:100%;border-radius:8px;cursor:zoom-in;display:block"
+               onerror="this.style.display='none'"/>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:600;color:#ff3b30;margin-bottom:6px">② 遇到双重认证必须这样操作 ⚠️</div>
+          <img src="https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/guide/2fa.png"
+               alt="双重认证" onclick="openLb(this.src)"
+               style="width:100%;border-radius:8px;cursor:zoom-in;display:block"
+               onerror="this.style.display='none'"/>
+        </div>
+      </div>
+    </details>
   </div>
 
   <!-- 搜索栏 -->
@@ -496,7 +520,22 @@ function render(){
   g.innerHTML=rows.map((a,i)=>{
     const idx=s+i;
     const vis=pvs[idx];
-    const ts=a.checked_at||(a.updated_at?new Date(a.updated_at).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'');
+    const rawTs=a.checked_at||a.updated_at||'';
+    let ts='';
+    if(rawTs){
+      const d=new Date(rawTs);
+      if(!isNaN(d)){
+        const yy=String(d.getFullYear()).slice(2);
+        const mo=String(d.getMonth()+1).padStart(2,'0');
+        const dy=String(d.getDate()).padStart(2,'0');
+        const hr=String(d.getHours()).padStart(2,'0');
+        const mi=String(d.getMinutes()).padStart(2,'0');
+        const se=String(d.getSeconds()).padStart(2,'0');
+        ts=yy+'/'+mo+'/'+dy+' '+hr+':'+mi+':'+se;
+      } else {
+        ts=rawTs;
+      }
+    };
     const pdisplay=vis
       ?`<span class="cv mono">${esc(a.password)}</span>`
       :`<span class="pdots">••••••••</span>`;
@@ -524,7 +563,7 @@ function render(){
     <button class="cbtn cbtn-p" onclick="cp('${esc(a.password)}','p',this,${idx})">复制密码</button>
   </div>
   <div class="rocket-tip">
-    <span class="rocket-tip-text">⚠️ 如锁定不可用，请更换其他重试</span>
+    <span class="rocket-tip-text">⚠️ 如锁定不可用，请更换，或者想安全且方便？👉</span>
     <a class="buy-id-btn" href="javascript:void(0)" onclick="openBuyId()">🔑 独享ID</a>
   </div>
   <div class="store-tip" id="st-${idx}">

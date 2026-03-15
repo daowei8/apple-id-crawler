@@ -2,12 +2,12 @@
 """
 Apple ID 共享账号爬虫 v8
 6个站点，按固定顺序：
-1. idfree.top               → strategy_data_clipboard（id精确配对）
-2. ccbaohe.com/appleID      → strategy_mailto_onclick（mailto解码邮箱 + onclick copy密码）
-3. tkbaohe.com/Shadowrocket → strategy_mailto_onclick（同 ccbaohe 结构）
-4. id.btvda.top             → 直接请求 API（appleapi.omofunz.com/api/data，返回list）
-5. id.bocchi2b.top          → API拦截（fetch/XHR拦截，返回list）
-6. idshare001.me/goso.html  → 直接请求 API（/node/getid.php，密码1分钟更新，排最后）
+1. idshare001.me/goso.html  → 直接请求 API（/node/getid.php，密码1分钟更新）
+2. idfree.top               → strategy_data_clipboard（id精确配对）
+3. ccbaohe.com/appleID      → strategy_mailto_onclick（mailto解码邮箱 + onclick copy密码）
+4. tkbaohe.com/Shadowrocket → strategy_mailto_onclick（同 ccbaohe 结构）
+5. id.btvda.top             → 直接请求 API（appleapi.omofunz.com/api/data，返回list）
+6. id.bocchi2b.top          → API拦截（fetch/XHR拦截，返回list）
 
 解析策略：
 - ccbaohe/tkbaohe：Cloudflare 保护邮箱（data-cfemail解码）+ onclick copy() 取密码

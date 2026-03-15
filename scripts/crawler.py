@@ -693,11 +693,22 @@ def extract_from_vue_api(driver, wait_secs=15, site_name="") -> list:
 
 
 def _to_cst(ts: str) -> str:
-    """API 返回的时间已经是北京时间，直接返回"""
+    """API 返回的 time 字段是 UTC，转成北京时间（+8小时）"""
     if not ts:
         return ""
-    m = re.search(r"(20\d{2}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)", str(ts))
-    return m.group(1).replace("T", " ") if m else str(ts)
+    try:
+        m = re.search(r"(20\d{2}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)", str(ts))
+        if not m:
+            return str(ts)
+        clean = m.group(1).replace("T", " ")
+        # 补秒
+        if len(clean) == 16:
+            clean += ":00"
+        dt = datetime.strptime(clean, "%Y-%m-%d %H:%M:%S")
+        dt_cst = dt + timedelta(hours=8)
+        return dt_cst.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return str(ts)
 
 
 def parse_vue_accounts(raw_list: list, site_name="") -> list:

@@ -472,7 +472,7 @@ function init(data){
   const t=data.generated_at?new Date(data.generated_at):null;
   if(t){
     const mo=t.getMonth()+1,dy=t.getDate(),hr=t.getHours(),mi=String(t.getMinutes()).padStart(2,'0');
-    document.getElementById('hUpdated').textContent=mo+'/'+dy+' '+hr+':'+mi;
+    document.getElementById('hUpdated').textContent=hr+':'+mi+' 更新';
   }
   document.getElementById('footer').innerHTML='各类海外账号应有尽有，加Q <a href="tencent://message/?uin=775060760" style="color:var(--blue);font-weight:600">775060760</a>';
   page=1;pvs={};

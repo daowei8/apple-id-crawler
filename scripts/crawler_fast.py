@@ -74,20 +74,27 @@ def crawl_idfree():
     token = None
     try:
         r = s.get("https://idfree.top/api/session_verify.php", timeout=10)
-        logger.info(f"  idfree verify status={r.status_code} body={r.text[:100]}")
         token = r.json().get("token")
+        logger.info(f"  idfree token={token}")
     except Exception as e: logger.warning(f"  idfree token: {e}")
-    if token:
-        # token 放 cookie，不放 header
-        s.cookies.set("token", token, domain="idfree.top")
-    try:
-        r = s.get("https://idfree.top/api/accounts.php", timeout=15)
-        logger.info(f"  idfree accounts status={r.status_code} body={r.text[:200]}")
-        data = r.json()
-        if isinstance(data, list):
-            logger.info(f"  idfree 抓到 {len(data)} 条")
-            return parse_api_list(data, "idfree.top", time_is_utc=False)
-    except Exception as e: logger.warning(f"  idfree: {e}")
+    if not token: return []
+    # 试多种方式传 token
+    for url in [
+        f"https://idfree.top/api/accounts.php?token={token}",
+        "https://idfree.top/api/accounts.php",
+    ]:
+        try:
+            s.cookies.set("token", token)
+            s.cookies.set("session_token", token)
+            s.headers.update({"X-Token": token, "X-Auth-Token": token})
+            r = s.get(url, timeout=15)
+            logger.info(f"  idfree url={url} status={r.status_code} body={r.text[:150]}")
+            if r.status_code == 200:
+                data = r.json()
+                if isinstance(data, list) and data:
+                    logger.info(f"  idfree 抓到 {len(data)} 条")
+                    return parse_api_list(data, "idfree.top", time_is_utc=False)
+        except Exception as e: logger.warning(f"  idfree {url}: {e}")
     return []
 
 def crawl_btvda():
@@ -105,24 +112,33 @@ def crawl_btvda():
 def crawl_bocchi2b():
     password = "qFyxno"
     s = requests.Session()
-    s.headers.update(HEADERS)
+    s.headers.update({
+        **HEADERS,
+        "Referer": "https://id.bocchi2b.top/",
+        "Origin": "https://id.bocchi2b.top",
+        "sec-fetch-site": "same-origin",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-dest": "empty",
+        "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+    })
     try:
-        # 先访问主页获取 session cookie
         r = s.get("https://id.bocchi2b.top/", timeout=10)
-        logger.info(f"  bocchi2b home status={r.status_code} cookies={dict(s.cookies)}")
+        logger.info(f"  bocchi2b home status={r.status_code}")
         m = re.search(r'password[=:][\x27"](\w{4,20})[\x27"]', r.text)
         if not m: m = re.search(r'[?&]password=(\w{4,20})', r.text)
         if m: password = m.group(1); logger.info(f"  bocchi2b password={password}")
     except Exception as e: logger.warning(f"  bocchi2b home: {e}")
     try:
-        s.headers.update({"Referer": "https://id.bocchi2b.top/"})
         r = s.get(f"https://id.bocchi2b.top/api/list?password={password}", timeout=15)
         logger.info(f"  bocchi2b status={r.status_code} body={r.text[:200]}")
-        data = r.json()
-        items = data if isinstance(data,list) else (data.get("id") or data.get("data") or data.get("list") or []) if isinstance(data,dict) else []
-        if items:
-            logger.info(f"  bocchi2b 抓到 {len(items)} 条")
-            return parse_api_list(items, "id.bocchi2b.top", time_is_utc=False)
+        if r.status_code == 200:
+            data = r.json()
+            items = data if isinstance(data,list) else (data.get("id") or data.get("data") or data.get("list") or []) if isinstance(data,dict) else []
+            if items:
+                logger.info(f"  bocchi2b 抓到 {len(items)} 条")
+                return parse_api_list(items, "id.bocchi2b.top", time_is_utc=False)
     except Exception as e: logger.warning(f"  bocchi2b: {e}")
     return []
 

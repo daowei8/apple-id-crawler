@@ -5,15 +5,32 @@ on:
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
+permissions:
+  actions: write
+  contents: read
+
 jobs:
   trigger:
     runs-on: ubuntu-latest
-    permissions:
-      actions: write
     steps:
-      - name: 触发完整爬虫
+      - name: 触发快速爬虫
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'crawler_fast.yml',
+              ref: 'main'
+            });
+            console.log('✅ 已触发 Fast Crawler');
+
+      - name: 每10次触发一次完整爬虫
+        if: ${{ github.run_number % 6 == 0 }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,

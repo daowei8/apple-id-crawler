@@ -2,8 +2,8 @@
 """
 Apple ID 共享账号爬虫 v8
 6个站点，按固定顺序：
-1. idshare001.me/goso.html  → 直接请求 API（/node/getid.php，密码1分钟更新）
-2. idfree.top               → strategy_data_clipboard（id精确配对）
+1. idfree.top               → strategy_data_clipboard（id精确配对）
+2. idshare001.me/goso.html  → 直接请求 API（/node/getid.php，密码1分钟更新）
 3. ccbaohe.com/appleID      → strategy_mailto_onclick（mailto解码邮箱 + onclick copy密码）
 4. tkbaohe.com/Shadowrocket → strategy_mailto_onclick（同 ccbaohe 结构）
 5. id.btvda.top             → 直接请求 API（appleapi.omofunz.com/api/data，返回list）
@@ -1107,8 +1107,8 @@ def crawl_bocchi2b(driver) -> list:
 # ══════════════════════════════════════════
 
 SITES = [
-    {"name": "idshare001.me",       "fn": crawl_idshare001},
     {"name": "idfree.top",          "fn": crawl_idfree_top},
+    {"name": "idshare001.me",       "fn": crawl_idshare001},
     {"name": "ccbaohe.com/appleID", "fn": crawl_ccbaohe},
     {"name": "tkbaohe.com",         "fn": crawl_tkbaohe},
     {"name": "id.btvda.top",        "fn": crawl_id_btvda_top},

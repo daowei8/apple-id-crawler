@@ -130,16 +130,48 @@ main{padding:0 0 80px}
 [data-theme=light] .alink{color:#0055b0;background:rgba(0,113,227,.08)}
 @media(max-width:380px){.airport-links{flex-direction:column}}
 
-/* 搜索栏 */
-.toolbar{display:flex;gap:10px;margin-bottom:14px;align-items:center;animation:fadeUp .4s ease .28s both}
-.sbox{flex:1;position:relative}
-.sbox input{width:100%;background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:10px 14px 10px 36px;font-size:14px;color:var(--text);font-family:inherit;outline:none;transition:border .2s}
-.sbox input::placeholder{color:var(--t3)}
-.sbox input:focus{border-color:var(--blue)}
-.si{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--t3);pointer-events:none}
-.cnt-lbl{font-size:12px;color:var(--t3);white-space:nowrap}
+/* ── 领取区域 ── */
+.claim-wrap{max-width:520px;margin:0 auto 32px;animation:fadeUp .4s ease .28s both}
 
-/* 账号卡片 */
+/* 领取卡片 */
+.claim-card{background:var(--card);border:.5px solid var(--border);border-radius:var(--R);padding:24px 22px;display:flex;flex-direction:column;gap:14px}
+.claim-title{font-size:18px;font-weight:700;text-align:center}
+.claim-sub{font-size:12.5px;color:var(--t2);text-align:center;margin-top:-8px}
+.region-label{font-size:13px;font-weight:600;color:var(--t2)}
+.region-sel-wrap{position:relative}
+.region-sel{width:100%;appearance:none;background:var(--bg2);border:.5px solid var(--border-h);border-radius:var(--r);padding:11px 40px 11px 14px;font-size:14px;color:var(--text);font-family:inherit;outline:none;cursor:pointer;transition:border .2s}
+.region-sel:focus{border-color:var(--blue)}
+.sel-arrow{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--t3);pointer-events:none}
+.claim-btn{width:100%;border:none;border-radius:980px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;background:var(--green);color:#fff;transition:opacity .15s}
+.claim-btn:hover{opacity:.88}
+.claim-btn:active{transform:scale(.97)}
+.claim-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* 结果卡片 */
+.result-card{background:var(--card);border:.5px solid var(--border);border-radius:var(--R);padding:22px 20px;flex-direction:column;gap:14px}
+.result-title{font-size:16px;font-weight:700;color:var(--text);padding-bottom:12px;border-bottom:.5px solid var(--border)}
+.result-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg2);border-radius:var(--r);border:.5px solid var(--border)}
+.result-lbl{font-size:11px;color:var(--t3);width:28px;flex-shrink:0}
+.result-val{flex:1;min-width:0;font-size:13.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.email-val{color:var(--blue)}
+[data-theme=light] .email-val{color:#0055b0}
+.mono-val{font-family:"SF Mono","Menlo",monospace;font-size:13px;letter-spacing:.4px;color:var(--text)}
+.copy-btn{flex-shrink:0;border:none;border-radius:980px;padding:5px 12px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit;background:rgba(0,113,227,.15);color:#5aabff;border:.5px solid rgba(0,113,227,.3);transition:all .15s}
+.copy-btn:hover{background:rgba(0,113,227,.26)}
+.copy-btn-p{background:var(--blue);color:#fff;border-color:transparent}
+.copy-btn-p:hover{opacity:.85}
+.copy-btn.ok{background:var(--green)!important;color:#fff!important;border-color:transparent!important}
+[data-theme=light] .copy-btn{color:#0055b0;background:rgba(0,80,180,.1);border-color:rgba(0,80,180,.2)}
+.pw-warn{font-size:11.5px;color:var(--orange);background:rgba(255,159,10,.08);border:.5px solid rgba(255,159,10,.2);border-radius:8px;padding:9px 12px;line-height:1.8}
+.re-btn{border:none;border-radius:980px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--card-h);color:var(--t2);border:.5px solid var(--border-h);width:100%;transition:all .15s}
+.re-btn:hover{color:var(--text)}
+
+/* 错误卡片 */
+.err-card{background:var(--card);border:.5px solid var(--border);border-radius:var(--R);padding:32px 22px;flex-direction:column;align-items:center;gap:12px;text-align:center}
+.err-icon{font-size:36px}
+.err-msg{font-size:13.5px;color:var(--t2);line-height:1.6}
+
+/* 账号卡片（保留，万一以后用到） */
 .grid{display:grid;gap:10px;animation:fadeUp .4s ease .32s both;grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
 .id-card{background:var(--card);border:.5px solid var(--border);border-radius:var(--R);padding:15px;display:flex;flex-direction:column;gap:10px;transition:background .15s,transform .15s,box-shadow .15s}
 .id-card:hover{background:var(--card-h);transform:translateY(-2px);box-shadow:0 8px 28px rgba(0,0,0,.22)}
@@ -396,20 +428,71 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
     </details>
   </div>
 
-  <!-- 搜索栏 -->
-  <div class="toolbar">
-    <div class="sbox">
-      <svg class="si" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input id="searchInput" type="text" placeholder="搜索邮箱…" oninput="onFilter()"/>
-    </div>
-    <span class="cnt-lbl" id="cntLbl"></span>
-  </div>
+  <!-- 领取区域 -->
+  <div class="claim-wrap" id="claimWrap">
 
-  <!-- 账号网格 -->
-  <div class="grid" id="grid">
-    <div class="empty"><div class="spin"></div>正在加载账号数据…</div>
+    <!-- 选择地区卡片 -->
+    <div class="claim-card" id="claimCard">
+      <div class="claim-title">🚀 领取共享 Apple ID</div>
+      <div class="claim-sub">选择地区，直接获取账号密码</div>
+
+      <div class="region-label">选择 Apple ID 地区</div>
+      <div class="region-sel-wrap">
+        <select id="regionSelect" class="region-sel">
+          <option value="">正在加载地区列表…</option>
+        </select>
+        <svg class="sel-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m6 9 6 6 6-6"/></svg>
+      </div>
+
+      <button class="claim-btn" id="claimBtn" onclick="claimId()">
+        <span id="claimBtnText">🎁 领取 Apple ID</span>
+      </button>
+    </div>
+
+    <!-- 结果卡片（默认隐藏） -->
+    <div class="result-card" id="resultCard" style="display:none">
+      <div class="result-title">🍎 Apple ID 账号信息</div>
+
+      <div class="result-row">
+        <div class="result-lbl">地区</div>
+        <div class="result-val" id="resRegion">—</div>
+      </div>
+
+      <div class="result-row">
+        <div class="result-lbl">账号</div>
+        <div class="result-val email-val" id="resEmail">—</div>
+        <button class="copy-btn" onclick="copyField('resEmail','账号')">复制</button>
+      </div>
+
+      <div class="result-row">
+        <div class="result-lbl">密码</div>
+        <div class="result-val mono-val" id="resPwd">—</div>
+        <button class="copy-btn copy-btn-p" onclick="copyField('resPwd','密码')">复制</button>
+      </div>
+
+      <div class="pw-warn">
+        ⏱ 密码有效期 1–10 分钟，请尽快使用<br>
+        🔴 App Store 登录选择「其他选项」「不升级」<br>
+        ⚠️ 密码请手动输入，区分大小写，如错误请重新领取
+      </div>
+
+      <!-- 独享推广 -->
+      <div class="rocket-tip">
+        <span class="rocket-tip-text">😤 共享随时失效，想稳定安全不锁机？ 👉</span>
+        <a class="buy-id-btn" href="javascript:void(0)" onclick="openBuyId()">🔑 独享ID</a>
+      </div>
+
+      <button class="re-btn" onclick="reClaimReset()">🔄 重新领取</button>
+    </div>
+
+    <!-- 错误卡片（默认隐藏） -->
+    <div class="err-card" id="errCard" style="display:none">
+      <div class="err-icon">😕</div>
+      <div class="err-msg" id="errMsg">领取失败，请稍后重试</div>
+      <button class="re-btn" onclick="reClaimReset()">🔄 重试</button>
+    </div>
+
   </div>
-  <div class="pager" id="pager"></div>
 
 </div>
 </main>
@@ -417,11 +500,14 @@ footer{text-align:center;padding:20px;font-size:12px;color:var(--t3)}
 <footer id="footer"></footer>
 
 <script>
-const DATA_URL  = 'https://raw.githubusercontent.com/daowei8/apple-id-crawler/main/apple_ids.json';
+/* ── 配置 ── */
+const API_BASE  = 'https://pay02.44s4.vip/api';
 const STORE_URL = 'https://apps.apple.com/us/app/shadowrocket/id932747118?l=zh-Hans-CN';
-const PAGE_SIZE = 24;
-let all=[],filtered=[],page=1,pvs={},tipTimers={};
+const BUY_URLS  = ['https://3335.eu.cc','https://tgsss.com/568FC132'];
+/* 默认优先选择小火箭地区的关键词 */
+const ROCKET_KW = ['小火箭','shad0wr0cket','shadowrocket','rocket'];
 
+/* ── Overlay 问答流程 ── */
 function quizWrong(){
   const w=document.getElementById('quiz-wrong');
   w.classList.remove('show');void w.offsetWidth;w.classList.add('show');
@@ -441,7 +527,6 @@ function showStep(id){
     el.style.display='none';
   });
   const target=document.getElementById(id);
-  // 步骤2/3用flex撑满高度，步骤1用block
   target.style.display=(id==='step-tut'||id==='step-2fa')?'flex':'block';
   if(id==='step-tut'||id==='step-2fa') target.style.flexDirection='column';
   const box=document.getElementById('ov-box');
@@ -449,7 +534,7 @@ function showStep(id){
   box.style.animation='popIn .28s cubic-bezier(.34,1.4,.64,1) both';
 }
 
-/* 灯箱 */
+/* ── 灯箱 ── */
 function openLb(src){
   document.getElementById('lb-img').src=src;
   document.getElementById('img-lb').classList.add('open');
@@ -460,8 +545,8 @@ function closeLb(){
   document.body.style.overflow='';
 }
 
+/* ── 主题 ── */
 function initTheme(){
-  // 跟随系统颜色主题，监听变化自动切换
   function applySystem(){
     const t=matchMedia('(prefers-color-scheme:light)').matches?'light':'dark';
     document.documentElement.setAttribute('data-theme',t);
@@ -470,153 +555,115 @@ function initTheme(){
   matchMedia('(prefers-color-scheme:light)').addEventListener('change',applySystem);
 }
 
-async function loadData(){
-  document.getElementById('grid').innerHTML='<div class="empty"><div class="spin"></div>正在加载…</div>';
-  document.getElementById('pager').innerHTML='';
+/* ── 地区列表加载 ── */
+async function loadRegions(){
+  const sel=document.getElementById('regionSelect');
   try{
-    const r=await fetch(DATA_URL+'?_='+Date.now(),{cache:'no-store'});
-    if(!r.ok)throw new Error('HTTP '+r.status);
-    init(await r.json());
+    const r=await fetch(`${API_BASE}/appleid/regions`,{cache:'no-store'});
+    const d=await r.json();
+    if(!d.success||!d.regions) throw new Error('无地区数据');
+    const regions=d.regions;
+    /* 找小火箭地区 */
+    const rocketIdx=regions.findIndex(s=>ROCKET_KW.some(k=>s.toLowerCase().includes(k.toLowerCase())));
+    sel.innerHTML='<option value="">请选择 Apple ID 地区…</option>'
+      +regions.map((s,i)=>`<option value="${s}"${i===rocketIdx?' selected':''}>${s}</option>`).join('');
+    /* 更新 nav 显示 */
+    document.getElementById('hTotal').textContent=regions.length;
+    document.getElementById('hUpdated').textContent='地区已加载';
   }catch(e){
-    document.getElementById('grid').innerHTML=
-      '<div class="empty">⚠️ 数据加载失败，请刷新重试<br><small style="color:var(--t3);margin-top:8px;display:block">'+e+'</small></div>';
+    sel.innerHTML='<option value="">⚠️ 地区加载失败，请刷新</option>';
+    console.error('loadRegions:',e);
   }
 }
-function init(data){
-  const SITE_ORDER=['idshare001.me','idfree.top','ccbaohe.com/appleID','tkbaohe.com','id.btvda.top','id.bocchi2b.top'];
-  all=(data.accounts||[]).sort((a,b)=>{
-    const ra=SITE_ORDER.indexOf(a.source||''), rb=SITE_ORDER.indexOf(b.source||'');
-    const sa=ra<0?99:ra, sb=rb<0?99:rb;
-    if(sa!==sb) return sa-sb;
-    const ta=a.checked_at||a.updated_at||'';
-    const tb=b.checked_at||b.updated_at||'';
-    return tb.localeCompare(ta);
-  });
-  document.getElementById('hTotal').textContent=data.total||0;
-  const t=data.generated_at?new Date(data.generated_at):null;
-  if(t){
-    const mo=t.getMonth()+1,dy=t.getDate(),hr=t.getHours(),mi=String(t.getMinutes()).padStart(2,'0');
-    document.getElementById('hUpdated').textContent=hr+':'+mi+' 更新';
+
+/* ── 领取逻辑 ── */
+async function claimId(){
+  const region=document.getElementById('regionSelect').value;
+  if(!region){ alert('请先选择地区'); return; }
+
+  /* 生成一个随机邮箱用于请求（账密从响应体直接返回，邮箱只是占位） */
+  const fakeEmail=`user${Date.now()}@163.com`;
+
+  /* 按钮loading */
+  const btn=document.getElementById('claimBtn');
+  const txt=document.getElementById('claimBtnText');
+  btn.disabled=true;
+  txt.textContent='⏳ 正在领取…';
+
+  try{
+    const resp=await fetch(`${API_BASE}/appleid/free`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:fakeEmail, region})
+    });
+    const data=await resp.json();
+
+    btn.disabled=false;
+    txt.textContent='🎁 领取 Apple ID';
+
+    /* 成功：直接返回了账密 */
+    if(data.success && data.account){
+      showResult(region, data.account.email||data.account.username||'—', data.account.password||'—');
+      return;
+    }
+
+    /* 部分站点返回格式不同，尝试兜底字段 */
+    if(data.email && data.password){
+      showResult(region, data.email, data.password);
+      return;
+    }
+
+    /* 需要付费/超限 → 提示并引导 */
+    const msg=data.error||data.message||'领取失败';
+    showError(msg + (data.payment_amount?`（需支付 ¥${data.payment_amount}）`:''));
+
+  }catch(e){
+    btn.disabled=false;
+    txt.textContent='🎁 领取 Apple ID';
+    showError('网络错误，请稍后重试');
+    console.error('claimId:',e);
   }
-  document.getElementById('footer').innerHTML='各类海外账号应有尽有，TG：<a href="https://t.me/daowei8" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">daowei8</a>';
-  page=1;pvs={};
-  applyFilter();
-}
-function onFilter(){page=1;applyFilter();}
-function applyFilter(){
-  const q=document.getElementById('searchInput').value.trim().toLowerCase();
-  filtered=q?all.filter(a=>a.email.includes(q)):[...all];
-  document.getElementById('cntLbl').textContent=filtered.length+'个';
-  render();
 }
 
-function render(){
-  const s=(page-1)*PAGE_SIZE,rows=filtered.slice(s,s+PAGE_SIZE);
-  const g=document.getElementById('grid');
-  if(!rows.length){
-    g.innerHTML='<div class="empty">😕 没有找到匹配的账号</div>';
-    document.getElementById('pager').innerHTML='';return;
-  }
-  g.innerHTML=rows.map((a,i)=>{
-    const idx=s+i;
-    const vis=pvs[idx];
-    const rawTs=a.checked_at||a.updated_at||'';
-    let ts='';
-    if(rawTs){
-      // 去掉"检测时间："等前缀，只保留 20xx-xx-xx xx:xx:xx 部分
-      const m=String(rawTs).match(/(20\d{2}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)/);
-      const clean=m?m[1]:String(rawTs);
-      const d=new Date(clean);
-      if(!isNaN(d)){
-        const yy=String(d.getFullYear()).slice(2);
-        const mo=String(d.getMonth()+1).padStart(2,'0');
-        const dy=String(d.getDate()).padStart(2,'0');
-        const hr=String(d.getHours()).padStart(2,'0');
-        const mi=String(d.getMinutes()).padStart(2,'0');
-        const se=String(d.getSeconds()).padStart(2,'0');
-        ts=yy+'/'+mo+'/'+dy+' '+hr+':'+mi+':'+se;
-      }
-    };
-    const pdisplay=vis
-      ?`<span class="cv mono">${esc(a.password)}</span>`
-      :`<span class="pdots">••••••••</span>`;
-    const isLocked=a.status&&(a.status.includes('锁')||a.status.includes('异常')||a.status.includes('失效'));
-    const statusBadge=a.status
-      ?`<span class="badge ${isLocked?'badge-lock':'badge-ok'}">${isLocked?'🔒':'✅'} ${esc(a.status)}</span>`:'';
-    const country=a.country||'美国';
-    const countryBadge=`<span class="badge badge-country">🌏 ${esc(country)}</span>`;
-    return `<div class="id-card">
-  <div class="ct">
-    <span class="cn">#${idx+1}</span>
-    ${statusBadge}${countryBadge}
-    ${ts?`<span class="ctime">${esc(ts)}</span>`:''}
-  </div>
-  <div class="cf">
-    <span class="cl">账号</span>
-    <span class="cv" title="${esc(a.email)}">${esc(a.email)}</span>
-  </div>
-  <div class="cf">
-    <span class="cl">密码</span>${pdisplay}
-    <button class="eyebtn" onclick="tpwd(${idx})">${vis?'🙈':'👁'}</button>
-  </div>
-  <div class="cbtns">
-    <button class="cbtn cbtn-a" onclick="cp('${esc(a.email)}','a',this,${idx})">复制账号</button>
-    <button class="cbtn cbtn-p" onclick="cp('${esc(a.password)}','p',this,${idx})">复制密码</button>
-  </div>
-  <div class="rocket-tip">
-    <span class="rocket-tip-text">😤 共享随时失效，想稳定安全不锁机？ 👉</span>
-    <a class="buy-id-btn" href="javascript:void(0)" onclick="openBuyId()">🔑 独享ID</a>
-  </div>
-  <div class="store-tip" id="st-${idx}">
-    ✅ 密码已复制！登录 App Store 后点击下载小火箭：<br>
-    <a href="${STORE_URL}" target="_blank">👉 前往 App Store 下载 Shadowrocket</a>
-  </div>
-</div>`;
-  }).join('');
-  renderPager();
+function showResult(region, email, pwd){
+  document.getElementById('claimCard').style.display='none';
+  document.getElementById('errCard').style.display='none';
+  document.getElementById('resRegion').textContent=region;
+  document.getElementById('resEmail').textContent=email;
+  document.getElementById('resPwd').textContent=pwd;
+  const rc=document.getElementById('resultCard');
+  rc.style.display='flex';
+  rc.style.animation='fadeUp .4s ease both';
 }
 
-function tpwd(idx){pvs[idx]=!pvs[idx];render();}
+function showError(msg){
+  document.getElementById('claimCard').style.display='none';
+  document.getElementById('resultCard').style.display='none';
+  document.getElementById('errMsg').textContent=msg;
+  document.getElementById('errCard').style.display='flex';
+}
 
-function cp(text,type,btn,idx){
-  const orig=btn.textContent;
-  navigator.clipboard.writeText(text).then(()=>{
+function reClaimReset(){
+  document.getElementById('resultCard').style.display='none';
+  document.getElementById('errCard').style.display='none';
+  document.getElementById('claimCard').style.display='flex';
+}
+
+/* ── 复制字段 ── */
+function copyField(id, label){
+  const val=document.getElementById(id).textContent;
+  navigator.clipboard.writeText(val).then(()=>{
+    const btn=event.target;
+    const orig=btn.textContent;
     btn.textContent='✓ 已复制';btn.classList.add('ok');
     setTimeout(()=>{btn.textContent=orig;btn.classList.remove('ok');},1800);
-    if(type==='p'){
-      const t=document.getElementById('st-'+idx);
-      if(t){t.classList.add('show');clearTimeout(tipTimers[idx]);tipTimers[idx]=setTimeout(()=>t.classList.remove('show'),9000);}
-    }
   });
 }
 
-function renderPager(){
-  const total=Math.ceil(filtered.length/PAGE_SIZE);
-  if(total<=1){document.getElementById('pager').innerHTML='';return;}
-  let h=`<button onclick="go(${page-1})" ${page===1?'disabled':''}>‹</button>`;
-  const lo=Math.max(1,page-2),hi=Math.min(total,page+2);
-  if(lo>1){h+=`<button onclick="go(1)">1</button>`;if(lo>2)h+=`<span class="pager-info">…</span>`;}
-  for(let p=lo;p<=hi;p++)h+=`<button class="${p===page?'on':''}" onclick="go(${p})">${p}</button>`;
-  if(hi<total){if(hi<total-1)h+=`<span class="pager-info">…</span>`;h+=`<button onclick="go(${total})">${total}</button>`;}
-  h+=`<button onclick="go(${page+1})" ${page===total?'disabled':''}>›</button>`;
-  h+=`<span class="pager-info">${filtered.length}个 / 第${page}页</span>`;
-  document.getElementById('pager').innerHTML=h;
-}
-
-function go(p){
-  const t=Math.ceil(filtered.length/PAGE_SIZE);
-  if(p<1||p>t)return;
-  page=p;pvs={};render();
-  window.scrollTo({top:0,behavior:'smooth'});
-}
-
+/* ── 独享ID链接 ── */
 function openBuyId(){
-  const urls=['https://3335.eu.cc','https://tgsss.com/568FC132'];
-  // 先尝试第一个，若无法打开（被拦截）自动用第二个
-  const w=window.open(urls[0],'_blank');
-  if(!w||w.closed||typeof w.closed==='undefined'){
-    window.location.href=urls[1];
-  }
+  const w=window.open(BUY_URLS[0],'_blank');
+  if(!w||w.closed||typeof w.closed==='undefined') window.location.href=BUY_URLS[1];
 }
 
 function esc(s){
@@ -624,7 +671,9 @@ function esc(s){
 }
 
 document.body.style.overflow='hidden';
-initTheme(); loadData(); setInterval(loadData,60*1000);
+initTheme();
+loadRegions();
+document.getElementById('footer').innerHTML='各类海外账号应有尽有，TG：<a href="https://t.me/daowei8" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">daowei8</a>';
 </script>
 </body>
 </html>

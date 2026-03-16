@@ -167,7 +167,7 @@ def parse_text(text):
             if k not in seen and len(k[1]) >= 5:
                 seen.add(k)
                 results.append({"email": k[0], "password": k[1], "status": "正常",
-                                 "checked_at": mt.group(1) if mt else "", "country": ""})
+                                 "checked_at": datetime.now(CST).strftime("%Y-%m-%d %H:%M:%S"), "country": ""})
     return results
 
 
@@ -401,7 +401,7 @@ return out;
                 mt = re.search(r"(20\d\d-\d\d-\d\d \d\d:\d\d)", txt)
                 mc = COUNTRY_RE.search(txt)
                 results.append({"email": e, "password": p, "status": "正常",
-                                 "checked_at": mt.group(1) if mt else "",
+                                 "checked_at": datetime.now(CST).strftime("%Y-%m-%d %H:%M:%S"),
                                  "country": mc.group(1) if mc else ""})
         return results
     except Exception:
@@ -439,7 +439,7 @@ def generic_parse(driver):
         m_c = COUNTRY_RE.search(text)
         seen.add(e)
         results.append({"email": e, "password": pwd, "status": "正常",
-                         "checked_at": m_t.group(1) if m_t else "",
+                         "checked_at": datetime.now(CST).strftime("%Y-%m-%d %H:%M:%S"),
                          "country": m_c.group(1) if m_c else ""})
     return dedup(results)
 
@@ -479,7 +479,7 @@ def strategy_data_clipboard(html: str) -> list:
                     break
         seen.add(email)
         results.append({"email": email, "password": pw, "status": "正常",
-                         "checked_at": find_time(card_text), "country": country})
+                         "checked_at": datetime.now(CST).strftime("%Y-%m-%d %H:%M:%S"), "country": country})
     if results:
         return results
 
@@ -513,7 +513,7 @@ def strategy_data_clipboard(html: str) -> list:
                 break
         seen.add(email)
         results.append({"email": email, "password": pw, "status": "正常",
-                         "checked_at": find_time(card_text), "country": country})
+                         "checked_at": datetime.now(CST).strftime("%Y-%m-%d %H:%M:%S"), "country": country})
     return results
 
 
@@ -594,7 +594,7 @@ def strategy_mailto_onclick(html: str) -> list:
         checked_at = mt.group(1) if mt else find_time(card_text)
 
         results.append({"email": email.lower().strip(), "password": pw.strip(),
-                         "status": "正常", "checked_at": checked_at, "country": country})
+                         "status": "正常", "checked_at": datetime.now(CST).strftime("%Y-%m-%d %H:%M:%S"), "country": country})
     return results
 
 
@@ -758,9 +758,7 @@ def parse_vue_accounts(raw_list: list, site_name="", time_is_utc=False) -> list:
             continue
         results.append({
             "email": email, "password": pw, "status": "正常",
-            "checked_at": (_to_cst(str(item.get("time") or item.get("checked_at") or item.get("update_time") or ""))
-                           if time_is_utc else
-                           str(item.get("time") or item.get("checked_at") or item.get("update_time") or "")),
+            "checked_at": datetime.now(CST).strftime("%Y-%m-%d %H:%M:%S"),
             "country": country,
         })
     return results

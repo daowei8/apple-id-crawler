@@ -711,7 +711,7 @@ def _to_cst(ts: str) -> str:
         return str(ts)
 
 
-def parse_vue_accounts(raw_list: list, site_name="") -> list:
+def parse_vue_accounts(raw_list: list, site_name="", time_is_utc=False) -> list:
     """把 API 返回的账号列表转换为标准格式"""
     results = []
     if not raw_list:
@@ -758,7 +758,9 @@ def parse_vue_accounts(raw_list: list, site_name="") -> list:
             continue
         results.append({
             "email": email, "password": pw, "status": "正常",
-            "checked_at": _to_cst(str(item.get("time") or item.get("checked_at") or item.get("update_time") or "")),
+            "checked_at": (_to_cst(str(item.get("time") or item.get("checked_at") or item.get("update_time") or ""))
+                           if time_is_utc else
+                           str(item.get("time") or item.get("checked_at") or item.get("update_time") or "")),
             "country": country,
         })
     return results
@@ -1015,7 +1017,7 @@ def crawl_id_btvda_top(driver) -> list:
         if resp.status_code == 200:
             raw = resp.json()
             if isinstance(raw, list) and len(raw) > 0:
-                results = parse_vue_accounts(raw)
+                results = parse_vue_accounts(raw, "btvda", time_is_utc=True)
                 if results:
                     logger.info(f"  id.btvda.top [direct API] → {len(results)} 条")
                     return dedup(results)
@@ -1034,7 +1036,7 @@ def crawl_id_btvda_top(driver) -> list:
 
         raw = extract_from_vue_api(driver, wait_secs=15, site_name="btvda")
         logger.info(f"  btvda API拦截到 {len(raw)} 条原始数据")
-        results = parse_vue_accounts(raw, "btvda")
+        results = parse_vue_accounts(raw, "btvda", time_is_utc=True)
         logger.info(f"  id.btvda.top 抓到: {len(results)}")
         return dedup(results)
     except Exception as ex:
@@ -1089,7 +1091,7 @@ def crawl_bocchi2b(driver) -> list:
         raw = extract_from_vue_api(driver, wait_secs=12, site_name="bocchi2b")
         if raw:
             logger.info(f"  bocchi2b API拦截到 {len(raw)} 条")
-            results = parse_vue_accounts(raw)
+            results = parse_vue_accounts(raw, "bocchi2b", time_is_utc=False)
             logger.info(f"  bocchi2b [API] → {len(results)} 条")
             return dedup(results)
 

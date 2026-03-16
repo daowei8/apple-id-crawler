@@ -60,7 +60,7 @@ COUNTRY_RE = re.compile(
 STATUS_BAD = {"异常", "不可用", "失效", "已失效", "locked", "invalid"}
 
 # 本爬虫负责的站点名（合并时用于清除旧数据）
-FAST_SOURCES = {"idshare001.me", "idfree.top"}
+FAST_SOURCES = {"idshare001.me"}
 
 SITE_ORDER = [
     "idfree.top", "idshare001.me",
@@ -625,33 +625,6 @@ def crawl_fast():
         source_stats["idshare001.me"] = nc
         logger.info(f"  → {nc} 条")
 
-        time.sleep(1)
-
-        # ── idfree.top（Selenium）──────────────────────────
-        logger.info("▶ idfree.top")
-        pairs = crawl_idfree_top(driver)
-        nc = 0
-        for p in pairs:
-            e = p.get("email", "").strip().lower()
-            pw = p.get("password", "").strip()
-            if not is_valid_email(e) or not pw or len(pw) < 4 or len(pw) > 64:
-                continue
-            if len(set(pw)) < 2:
-                continue
-            if "&amp;" in pw:
-                pw = pw.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-            if e not in records:
-                records[e] = {
-                    "id": uid(e), "email": e, "password": pw,
-                    "status": p.get("status", "正常"),
-                    "country": p.get("country", ""),
-                    "checked_at": p.get("checked_at", now_cst()),
-                    "source": "idfree.top",
-                    "updated_at": now_cst(),
-                }
-                nc += 1
-        source_stats["idfree.top"] = nc
-        logger.info(f"  → {nc} 条")
 
     finally:
         driver.quit()
@@ -666,6 +639,5 @@ if __name__ == "__main__":
     result = merge_and_save(records, output_path)
     logger.info(
         f"【快速爬虫完成】idshare001={source_stats.get('idshare001.me', 0)} "
-        f"idfree={source_stats.get('idfree.top', 0)} "
         f"JSON总计={result['total']}"
     )

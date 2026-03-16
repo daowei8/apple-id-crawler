@@ -78,8 +78,8 @@ def crawl_idfree():
         token = r.json().get("token")
     except Exception as e: logger.warning(f"  idfree token: {e}")
     if token:
-        s.headers.update({"Authorization": f"Bearer {token}"})
-        s.cookies.set("token", token)
+        # token 放 cookie，不放 header
+        s.cookies.set("token", token, domain="idfree.top")
     try:
         r = s.get("https://idfree.top/api/accounts.php", timeout=15)
         logger.info(f"  idfree accounts status={r.status_code} body={r.text[:200]}")
@@ -104,15 +104,19 @@ def crawl_btvda():
 
 def crawl_bocchi2b():
     password = "qFyxno"
+    s = requests.Session()
+    s.headers.update(HEADERS)
     try:
-        r = requests.get("https://id.bocchi2b.top/", headers=HEADERS, timeout=10)
+        # 先访问主页获取 session cookie
+        r = s.get("https://id.bocchi2b.top/", timeout=10)
+        logger.info(f"  bocchi2b home status={r.status_code} cookies={dict(s.cookies)}")
         m = re.search(r'password[=:][\x27"](\w{4,20})[\x27"]', r.text)
         if not m: m = re.search(r'[?&]password=(\w{4,20})', r.text)
         if m: password = m.group(1); logger.info(f"  bocchi2b password={password}")
-    except Exception as e: logger.warning(f"  bocchi2b get_pw: {e}")
+    except Exception as e: logger.warning(f"  bocchi2b home: {e}")
     try:
-        r = requests.get(f"https://id.bocchi2b.top/api/list?password={password}",
-                         headers={**HEADERS,"Referer":"https://id.bocchi2b.top/"}, timeout=15)
+        s.headers.update({"Referer": "https://id.bocchi2b.top/"})
+        r = s.get(f"https://id.bocchi2b.top/api/list?password={password}", timeout=15)
         logger.info(f"  bocchi2b status={r.status_code} body={r.text[:200]}")
         data = r.json()
         items = data if isinstance(data,list) else (data.get("id") or data.get("data") or data.get("list") or []) if isinstance(data,dict) else []

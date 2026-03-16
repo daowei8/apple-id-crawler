@@ -2,12 +2,12 @@ name: Apple ID Crawler
 
 on:
   schedule:
-    - cron: "*/20 * * * *"  # 每20分钟保底
-  workflow_dispatch:         # 支持手动触发（trigger.yml 每10分钟调用）
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
 
 concurrency:
   group: crawler
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   crawl:
@@ -63,6 +63,5 @@ jobs:
           else
             COUNT=$(python -c "import json; print(json.load(open('apple_ids.json'))['total'])")
             git commit -m "🤖 自动更新: ${COUNT} 个账号 [$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M CST')]"
-            git pull --rebase origin main || (git rebase --abort && git pull origin main && git checkout HEAD -- apple_ids.json && git add apple_ids.json && git commit -m "🤖 强制更新: ${COUNT} 个账号 [$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M CST')]")
-            git push
+            git push --force-with-lease origin main || git push --force origin main
           fi

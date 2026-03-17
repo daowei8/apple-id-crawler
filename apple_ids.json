@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-17 23:24",
+  "generated_at": "2026-03-17 23:25",
   "total": 139,
   "source_stats": {
     "idfree.top": 2,
@@ -22,9 +22,9 @@
       "password": "Q5J8pQbuwG",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-17 23:23:45",
+      "checked_at": "2026-03-17 23:25:32",
       "source": "idfree.top",
-      "updated_at": "2026-03-17 23:23:45"
+      "updated_at": "2026-03-17 23:25:32"
     },
     {
       "id": "9255e5bba61f",
@@ -32,9 +32,9 @@
       "password": "G84fzJnRhS",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-17 23:23:45",
+      "checked_at": "2026-03-17 23:25:32",
       "source": "idfree.top",
-      "updated_at": "2026-03-17 23:23:45"
+      "updated_at": "2026-03-17 23:25:32"
     },
     {
       "id": "1082704efbcb",
@@ -1374,7 +1374,7 @@
       "country": "中国大陆",
       "checked_at": "2026-03-17 23:23:34",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-17 23:23:59"
+      "updated_at": "2026-03-17 23:25:46"
     },
     {
       "id": "dd51259f2651",
@@ -1384,7 +1384,7 @@
       "country": "台湾",
       "checked_at": "2026-03-17 23:22:30",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-17 23:23:59"
+      "updated_at": "2026-03-17 23:25:46"
     },
     {
       "id": "770bdde72d41",
@@ -1394,7 +1394,7 @@
       "country": "日本",
       "checked_at": "2026-03-17 23:21:28",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-17 23:23:59"
+      "updated_at": "2026-03-17 23:25:46"
     },
     {
       "id": "05168643b20f",
@@ -1404,7 +1404,7 @@
       "country": "美国",
       "checked_at": "2026-03-17 23:08:25",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-17 23:23:59"
+      "updated_at": "2026-03-17 23:25:46"
     }
   ]
 }

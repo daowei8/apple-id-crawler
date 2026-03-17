@@ -497,23 +497,12 @@ function init(data){
     'fx.xdd.net.tr'
   ];
 
-  // 先按来源分组，每组内部按 checked_at 降序（原站点时间，最新在前）
-  const groups={};
-  for(const a of (data.accounts||[])){
-    const src=a.source||'unknown';
-    if(!groups[src]) groups[src]=[];
-    groups[src].push(a);
-  }
-  for(const src in groups){
-    groups[src].sort((a,b)=>{
-      const ta=a.checked_at||a.updated_at||'';
-      const tb=b.checked_at||b.updated_at||'';
-      return tb.localeCompare(ta);
-    });
-  }
-  all=[];
-  for(const src of SITE_ORDER){ if(groups[src]) all.push(...groups[src]); }
-  for(const src in groups){ if(!SITE_ORDER.includes(src)) all.push(...groups[src]); }
+  // 全部账号统一按 checked_at 降序（原站点更新时间，最新的排第一）
+  all=(data.accounts||[]).slice().sort((a,b)=>{
+    const ta=a.checked_at||a.updated_at||'';
+    const tb=b.checked_at||b.updated_at||'';
+    return tb.localeCompare(ta);
+  });
 
   document.getElementById('hTotal').textContent=data.total||0;
   const t=data.generated_at?new Date(data.generated_at):null;

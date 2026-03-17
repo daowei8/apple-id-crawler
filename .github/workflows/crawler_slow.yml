@@ -1,0 +1,69 @@
+name: Apple ID Crawler — Slow
+
+# 由 cron-job.org 每 7 分钟通过 workflow_dispatch 触发
+# 此处 schedule 作保底兜底
+on:
+  schedule:
+    - cron: "*/7 * * * *"   # 兜底（GitHub 最小粒度实际为 5 分钟，此处仅供参考）
+  workflow_dispatch:          # cron-job.org 触发入口
+
+concurrency:
+  group: crawler-slow
+  cancel-in-progress: true   # 避免慢爬积压
+
+jobs:
+  crawl-slow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25       # 4 个站点 Selenium 全跑，留足时间
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Chrome
+        run: |
+          wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
+          google-chrome --version
+
+      - name: 配置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 运行慢速爬虫
+        env:
+          OUTPUT_FILE: apple_ids.json
+        run: python scripts/crawler_slow.py
+
+      - name: 打印统计
+        run: |
+          python - <<'PYEOF'
+          import json
+          d = json.load(open("apple_ids.json"))
+          print(f"📊 账号总数: {d['total']}")
+          print(f"🕐 生成时间: {d['generated_at']}")
+          print("📦 各站来源:")
+          for src, cnt in d["source_stats"].items():
+              print(f"   {src}: {cnt} 条")
+          PYEOF
+
+      - name: 提交数据
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apple_ids.json
+          if git diff --cached --quiet; then
+            echo "数据无变化，跳过提交"
+          else
+            COUNT=$(python -c "import json; print(json.load(open('apple_ids.json'))['total'])")
+            git commit -m "🐢 慢速更新: ${COUNT} 个账号 [$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M CST')]"
+            git push --force-with-lease origin main || git push --force origin main
+          fi

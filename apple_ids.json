@@ -1,7 +1,8 @@
 {
-  "generated_at": "2026-03-17 23:05",
-  "total": 133,
+  "generated_at": "2026-03-17 23:07",
+  "total": 138,
   "source_stats": {
+    "idfree.top": 2,
     "idshare001.me": 2,
     "ios.juzixp.com": 3,
     "applexp/美区": 17,
@@ -11,9 +12,30 @@
     "ccbaohe.com/appleID": 71,
     "tkbaohe.com": 6,
     "id.btvda.top": 13,
-    "id.bocchi2b.top": 8
+    "id.bocchi2b.top": 8,
+    "fx.xdd.net.tr": 3
   },
   "accounts": [
+    {
+      "id": "94a9cb0b7947",
+      "email": "rjfeymlt0028@icloud.com",
+      "password": "RaqcDfg72z",
+      "status": "正常",
+      "country": "",
+      "checked_at": "2026-03-17 23:07:33",
+      "source": "idfree.top",
+      "updated_at": "2026-03-17 23:07:33"
+    },
+    {
+      "id": "9255e5bba61f",
+      "email": "qkbsvjwi872@icloud.com",
+      "password": "G84fzJnRhS",
+      "status": "正常",
+      "country": "",
+      "checked_at": "2026-03-17 23:07:33",
+      "source": "idfree.top",
+      "updated_at": "2026-03-17 23:07:33"
+    },
     {
       "id": "1082704efbcb",
       "email": "idshare.me_u223nw@icloud.com",
@@ -1343,6 +1365,36 @@
       "checked_at": "2026-03-17 22:54:54",
       "source": "id.bocchi2b.top",
       "updated_at": "2026-03-17 22:54:54"
+    },
+    {
+      "id": "dd51259f2651",
+      "email": "kotcuuxien@cnap.biz",
+      "password": "vs4755SmQD",
+      "status": "正常",
+      "country": "台湾",
+      "checked_at": "2026-03-17 23:00:41",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-17 23:07:47"
+    },
+    {
+      "id": "64ae0d50430d",
+      "email": "aggt.do4vdbugrs@outlook.com",
+      "password": "sQpnGa9kNs",
+      "status": "正常",
+      "country": "香港",
+      "checked_at": "2026-03-17 22:53:22",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-17 23:07:47"
+    },
+    {
+      "id": "05168643b20f",
+      "email": "ecdsa4304652914@icloud.com",
+      "password": "ASMcqQWJ3h",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-17 22:46:23",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-17 23:07:47"
     }
   ]
 }

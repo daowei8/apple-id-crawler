@@ -2,14 +2,20 @@
 """
 Apple ID 快速爬虫 — crawler_fast.py
 负责高频更新站点（每 1 分钟爬一次）：
-  1. idshare001.me  — 直接请求 /node/getid.php?getid=1 和 getid=2（纯 requests）
-  2. idfree.top     — Selenium（有"我已阅读"弹窗必须点击）
+  1. idshare001.me       — 直接请求 /node/getid.php?getid=1 和 getid=2（纯 requests）
+  2. ios.juzixp.com      — 纯 requests 解析 onclick 中的账密
+  3. applexp 美区        — 直接请求 pga.juzixp.top API
+  4. applexp 日区        — 直接请求 pga.juzixp.top API
+  5. applexp 港区        — 直接请求 pga.juzixp.top API
+  6. applexp 小火箭      — 直接请求 pga.juzixp.top + dc.juzixp.top API
 
-结果合并写入 apple_ids.json（与 crawler_slow.py 共用同一文件）
-合并策略：保留现有 slow 站点账号，用本次新数据覆盖 fast 站点账号。
+新增的 2-6 全部是纯 requests，不需要 Selenium，并发执行，几乎不增加时间。
+结果合并写入 apple_ids.json（与 crawler_slow.py / crawler_mid.py 共用同一文件）
+合并策略：保留现有 slow/mid 站点账号，用本次新数据覆盖 fast 站点账号。
 """
 
 import re, json, time, hashlib, logging, os
+import concurrent.futures
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -49,6 +55,8 @@ VALID_DOMAINS = {
     "yahoo.com", "yahoo.co.jp",
     "protonmail.com", "proton.me",
     "email.com",
+    "kuaiyun1.com",
+    "eml.ru", "cnap.biz",
 }
 
 COUNTRY_RE = re.compile(
@@ -59,13 +67,22 @@ COUNTRY_RE = re.compile(
 
 STATUS_BAD = {"异常", "不可用", "失效", "已失效", "locked", "invalid"}
 
-# 本爬虫负责的站点名（合并时用于清除旧数据）
-FAST_SOURCES = {"idshare001.me"}
+FAST_SOURCES = {
+    "idshare001.me",
+    "ios.juzixp.com",
+    "applexp/美区",
+    "applexp/日区",
+    "applexp/港区",
+    "applexp/小火箭",
+}
 
 SITE_ORDER = [
     "idfree.top", "idshare001.me",
+    "ios.juzixp.com",
+    "applexp/美区", "applexp/日区", "applexp/港区", "applexp/小火箭",
     "ccbaohe.com/appleID", "tkbaohe.com",
     "id.btvda.top", "id.bocchi2b.top",
+    "fx.xdd.net.tr",
 ]
 
 
@@ -80,7 +97,7 @@ def is_valid_email(email: str) -> bool:
     if len(parts) != 2:
         return False
     local, domain = parts
-    if len(local) < 4:
+    if len(local) < 2:
         return False
     return domain in VALID_DOMAINS
 
@@ -121,8 +138,18 @@ def fetch_html(url: str, timeout: int = 12) -> str:
         return ""
 
 
+def fetch_json(url: str, timeout: int = 12):
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=timeout)
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception as ex:
+        logger.debug(f"  fetch_json {url} 失败: {ex}")
+    return None
+
+
 # ══════════════════════════════════════════
-# Selenium 工具
+# Selenium 工具（仅 idshare001 兜底使用）
 # ══════════════════════════════════════════
 
 def make_driver():
@@ -261,9 +288,8 @@ def parse_vue_accounts(raw_list: list, site_name="") -> list:
     results = []
     if not raw_list:
         return results
-    if raw_list:
-        first = raw_list[0]
-        logger.info(f"  {site_name} 样本字段: {list(first.keys()) if isinstance(first, dict) else type(first)}")
+    first = raw_list[0]
+    logger.info(f"  {site_name} 样本字段: {list(first.keys()) if isinstance(first, dict) else type(first)}")
     for item in raw_list:
         if not isinstance(item, dict):
             continue
@@ -297,7 +323,6 @@ def strategy_data_clipboard(html: str) -> list:
     results = []
     seen = set()
 
-    # 方法1：id 精确配对
     for btn in soup.select("button[id^='username_'], a[id^='username_']"):
         n = btn.get("id", "")[9:]
         email = btn.get("data-clipboard-text", "").strip().lower()
@@ -322,7 +347,6 @@ def strategy_data_clipboard(html: str) -> list:
     if results:
         return results
 
-    # 方法2：.card-body 内 .copy-btn / .copy-pass-btn
     for card in soup.select(".card-body"):
         email = ""
         for sel in [".copy-btn", "button.btn-primary[data-clipboard-text]"]:
@@ -356,7 +380,6 @@ def strategy_data_clipboard(html: str) -> list:
 
 
 def click_card_by_card(driver, account_cls, password_cls):
-    """逐卡片点击账号/密码按钮，用剪贴板钩子配对"""
     driver.execute_script(HOOK_JS)
     time.sleep(0.3)
     results = []
@@ -401,10 +424,6 @@ def click_card_by_card(driver, account_cls, password_cls):
 # ══════════════════════════════════════════
 
 def crawl_idshare001(driver) -> list:
-    """
-    直接 requests /node/getid.php?getid=2 和 getid=1（1 分钟更新一次）
-    Selenium 仅兜底。
-    """
     raw = []
     for api_path in ["/node/getid.php?getid=2", "/node/getid.php?getid=1"]:
         try:
@@ -449,10 +468,6 @@ def crawl_idshare001(driver) -> list:
 
 
 def crawl_idfree_top(driver) -> list:
-    """
-    idfree.top — 必须 Selenium 点击弹窗。
-    先尝试 requests 静态解析，大概率因弹窗失败，再 Selenium。
-    """
     html = fetch_html("https://idfree.top/")
     if html and "@" in html:
         r = strategy_data_clipboard(html)
@@ -500,7 +515,6 @@ def crawl_idfree_top(driver) -> list:
     if not results:
         results = click_card_by_card(driver, ".btn-copy-account", ".btn-copy-password")
     if not results:
-        # 通用剪贴板兜底
         driver.execute_script(HOOK_JS)
         time.sleep(0.3)
         xpath_btns = (
@@ -537,17 +551,272 @@ def crawl_idfree_top(driver) -> list:
     return dedup(results)
 
 
+# ── 新增站点 1：ios.juzixp.com ──────────────────────────────
+
+def crawl_ios_juzixp() -> list:
+    url = "https://ios.juzixp.com/"
+    html = fetch_html(url, timeout=15)
+    if not html:
+        logger.warning("  ios.juzixp.com 页面拉取失败")
+        return []
+
+    soup = BeautifulSoup(html, "lxml")
+    results = []
+    seen = set()
+
+    for card in soup.select(".account-card"):
+        btn_group = card.select_one(".btn-group")
+        if not btn_group:
+            continue
+
+        email_btn = btn_group.select_one("button.copy-email")
+        pwd_btn   = btn_group.select_one("button.copy-password")
+
+        if not email_btn or not pwd_btn:
+            continue
+
+        def extract_copy_val(btn):
+            oc = btn.get("onclick", "")
+            m = re.search(r"handleCopy\('([^']+)'", oc)
+            if not m:
+                m = re.search(r'handleCopy\("([^"]+)"', oc)
+            return m.group(1).strip() if m else ""
+
+        email = extract_copy_val(email_btn).lower()
+        pw    = extract_copy_val(pwd_btn)
+
+        if not email or not pw:
+            continue
+        if not is_valid_email(email):
+            continue
+        if "@" in pw or len(pw) < 4 or len(pw) > 64:
+            continue
+        if email in seen:
+            continue
+
+        status_span = card.select_one(".status")
+        status_text = status_span.get_text(strip=True) if status_span else "正常"
+        if bad(status_text):
+            continue
+
+        country = ""
+        for info_item in card.select(".info-item"):
+            label = info_item.select_one(".info-label")
+            if label and "国家" in label.get_text():
+                spans = info_item.find_all("span")
+                if len(spans) >= 2:
+                    country = find_country(spans[-1].get_text(strip=True))
+                break
+        if not country:
+            country = find_country(card.get_text(" ", strip=True))
+
+        checked_at = now_cst()
+        for info_item in card.select(".info-item"):
+            label = info_item.select_one(".info-label")
+            if label and "更新时间" in label.get_text():
+                spans = info_item.find_all("span")
+                if len(spans) >= 2:
+                    t = spans[-1].get_text(strip=True)
+                    if re.match(r"20\d{2}-\d{2}-\d{2}", t):
+                        checked_at = t
+                break
+
+        seen.add(email)
+        results.append({
+            "email": email, "password": pw,
+            "status": "正常", "checked_at": checked_at,
+            "country": country,
+        })
+
+    logger.info(f"  ios.juzixp.com 最终: {len(results)} 条")
+    return dedup(results)
+
+
+# ── 新增站点 2-5：applexp 系列 ──────────────────────────────
+
+def _parse_applexp_api_response(data, site_name: str) -> list:
+    if not isinstance(data, dict):
+        logger.warning(f"  {site_name} API 返回格式异常: {type(data)}")
+        return []
+    if data.get("code") != 200:
+        logger.warning(f"  {site_name} API code={data.get('code')}, msg={data.get('msg')}")
+        return []
+
+    raw_list = data.get("data", [])
+    if not isinstance(raw_list, list):
+        logger.warning(f"  {site_name} data 字段不是列表")
+        return []
+
+    results = []
+    seen = set()
+    for item in raw_list:
+        if not isinstance(item, dict):
+            continue
+        email = str(item.get("email") or "").strip().lower()
+        pw    = str(item.get("password") or "").strip()
+
+        if not email or not pw:
+            continue
+        if not is_valid_email(email):
+            continue
+        if "@" in pw or len(pw) < 4 or len(pw) > 64:
+            continue
+
+        raw_status = item.get("status", 1)
+        if isinstance(raw_status, int):
+            if raw_status != 1:
+                continue
+        else:
+            if bad(str(raw_status)):
+                continue
+
+        raw_country = str(item.get("country") or "")
+        country = find_country(raw_country) or raw_country or "美国"
+
+        updated = str(item.get("updatedTime") or item.get("createdTime") or "")
+        checked_at = now_cst()
+        m = re.match(r"(20\d{2}-\d{2}-\d{2})T(\d{2}:\d{2})", updated)
+        if m:
+            checked_at = f"{m.group(1)} {m.group(2)}:00"
+
+        if email in seen:
+            continue
+        seen.add(email)
+        results.append({
+            "email": email, "password": pw,
+            "status": "正常", "checked_at": checked_at,
+            "country": country,
+        })
+
+    return results
+
+
+def _parse_dc_juzixp_txt(text: str) -> dict:
+    if not text or not text.strip():
+        return {}
+    result = {}
+    lines = text.strip().splitlines()
+    for line in lines:
+        line = line.strip()
+        if not line or ":" not in line:
+            continue
+        key, _, val = line.partition(":")
+        key = key.strip()
+        val = val.strip()
+        if key in ("账号", "邮箱"):
+            result["email"] = val.lower()
+        elif key == "密码":
+            result["password"] = val
+        elif key in ("类型", "国家"):
+            result["country"] = find_country(val) or val
+        elif key in ("检查时间", "上次检查"):
+            result["checked_at"] = val
+        elif key == "状态":
+            result["status"] = val
+    return result
+
+
+def crawl_applexp_us() -> list:
+    url = "https://pga.juzixp.top/api/AppleidShare/GetAll?Country=美国"
+    data = fetch_json(url)
+    if data is None:
+        logger.warning("  applexp/美区 API 请求失败")
+        return []
+    results = _parse_applexp_api_response(data, "applexp/美区")
+    for r in results:
+        if not r.get("country"):
+            r["country"] = "美国"
+    logger.info(f"  applexp/美区 最终: {len(results)} 条")
+    return dedup(results)
+
+
+def crawl_applexp_jp() -> list:
+    url = "https://pga.juzixp.top/api/AppleidShare/GetAll?Country=日本"
+    data = fetch_json(url)
+    if data is None:
+        logger.warning("  applexp/日区 API 请求失败")
+        return []
+    results = _parse_applexp_api_response(data, "applexp/日区")
+    for r in results:
+        if not r.get("country"):
+            r["country"] = "日本"
+    logger.info(f"  applexp/日区 最终: {len(results)} 条")
+    return dedup(results)
+
+
+def crawl_applexp_hk() -> list:
+    url = "https://pga.juzixp.top/api/AppleidShare/GetAll?Country=香港"
+    data = fetch_json(url)
+    if data is None:
+        logger.warning("  applexp/港区 API 请求失败")
+        return []
+    results = _parse_applexp_api_response(data, "applexp/港区")
+    for r in results:
+        if not r.get("country"):
+            r["country"] = "香港"
+    logger.info(f"  applexp/港区 最终: {len(results)} 条")
+    return dedup(results)
+
+
+def crawl_applexp_shadowrocket() -> list:
+    results = []
+    seen_emails = set()
+
+    url_api = "https://pga.juzixp.top/api/AppleidShare/GetAll?IsSck=1"
+    data = fetch_json(url_api)
+    if data is not None:
+        api_results = _parse_applexp_api_response(data, "applexp/小火箭-API")
+        for r in api_results:
+            e = r["email"]
+            if e not in seen_emails:
+                seen_emails.add(e)
+                results.append(r)
+        logger.info(f"  applexp/小火箭 API → {len(api_results)} 条")
+    else:
+        logger.warning("  applexp/小火箭 主API 请求失败")
+
+    for n in range(3):
+        txt_url = f"https://dc.juzixp.top/go-rod/{n}.txt"
+        try:
+            resp = requests.get(txt_url, headers=HEADERS, timeout=10)
+            if resp.status_code != 200:
+                continue
+            resp.encoding = "utf-8"
+            record = _parse_dc_juzixp_txt(resp.text)
+            if not record:
+                continue
+            email = record.get("email", "")
+            pw    = record.get("password", "")
+            if not email or not pw:
+                continue
+            if not is_valid_email(email):
+                continue
+            if "@" in pw or len(pw) < 4 or len(pw) > 64:
+                continue
+            if bad(record.get("status", "正常")):
+                continue
+            if email in seen_emails:
+                continue
+            seen_emails.add(email)
+            results.append({
+                "email": email, "password": pw,
+                "status": "正常",
+                "checked_at": record.get("checked_at", now_cst()),
+                "country": record.get("country", "美国"),
+            })
+            logger.info(f"  applexp/小火箭 {n}.txt → {email}")
+        except Exception as ex:
+            logger.debug(f"  applexp/小火箭 {n}.txt 失败: {ex}")
+
+    logger.info(f"  applexp/小火箭 最终: {len(results)} 条")
+    return dedup(results)
+
+
 # ══════════════════════════════════════════
 # 合并写入 apple_ids.json
 # ══════════════════════════════════════════
 
 def merge_and_save(fast_records: dict, output_path: str) -> dict:
-    """
-    1. 读取现有 apple_ids.json
-    2. 保留非 FAST_SOURCES 的账号（slow 站点）
-    3. 用 fast_records 覆盖 fast 站点账号
-    4. 写回文件
-    """
     existing_accounts = []
     if Path(output_path).exists():
         try:
@@ -568,8 +837,25 @@ def merge_and_save(fast_records: dict, output_path: str) -> dict:
     accounts = sorted(
         merged.values(),
         key=lambda a: (order_map.get(a.get("source", ""), 999),
+                       -(len(a.get("checked_at") or "")),
                        a.get("checked_at", "") or "")
     )
+
+    # 每个来源内部按 checked_at 降序（最新的在前）
+    from itertools import groupby
+    groups = {}
+    for a in merged.values():
+        src = a.get("source", "unknown")
+        groups.setdefault(src, []).append(a)
+    for src in groups:
+        groups[src].sort(key=lambda a: a.get("checked_at", "") or "", reverse=True)
+
+    accounts = []
+    for src in SITE_ORDER:
+        accounts.extend(groups.get(src, []))
+    for src, lst in groups.items():
+        if src not in SITE_ORDER:
+            accounts.extend(lst)
 
     source_stats = {}
     for a in accounts:
@@ -592,39 +878,74 @@ def merge_and_save(fast_records: dict, output_path: str) -> dict:
 # 主流程
 # ══════════════════════════════════════════
 
+def _make_record(p: dict, source: str) -> tuple:
+    e  = p.get("email", "").strip().lower()
+    pw = p.get("password", "").strip()
+    if not is_valid_email(e) or not pw or len(pw) < 4 or len(pw) > 64:
+        return None, None
+    if len(set(pw)) < 2:
+        return None, None
+    if "&amp;" in pw:
+        pw = pw.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
+    return e, {
+        "id": uid(e), "email": e, "password": pw,
+        "status": p.get("status", "正常"),
+        "country": p.get("country", ""),
+        "checked_at": p.get("checked_at", now_cst()),
+        "source": source,
+        "updated_at": now_cst(),
+    }
+
+
 def crawl_fast():
     records = {}
     source_stats = {}
 
-    logger.info("【快速爬虫】启动 Chrome…")
+    logger.info("【快速爬虫】第一阶段：并发请求纯 requests 站点…")
+
+    pure_tasks = [
+        (crawl_ios_juzixp,            "ios.juzixp.com"),
+        (crawl_applexp_us,            "applexp/美区"),
+        (crawl_applexp_jp,            "applexp/日区"),
+        (crawl_applexp_hk,            "applexp/港区"),
+        (crawl_applexp_shadowrocket,  "applexp/小火箭"),
+    ]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_source = {
+            executor.submit(fn): src
+            for fn, src in pure_tasks
+        }
+        for future in concurrent.futures.as_completed(future_to_source):
+            src = future_to_source[future]
+            try:
+                pairs = future.result()
+            except Exception as ex:
+                logger.error(f"  {src} 并发异常: {ex}")
+                pairs = []
+
+            nc = 0
+            for p in pairs:
+                e, rec = _make_record(p, src)
+                if e and e not in records:
+                    records[e] = rec
+                    nc += 1
+            source_stats[src] = nc
+            logger.info(f"  {src} → 新增 {nc} 条")
+
+    logger.info("【快速爬虫】第二阶段：启动 Chrome（idshare001）…")
     driver = make_driver()
     try:
-        # ── idshare001（优先纯 requests）──────────────────
         logger.info("▶ idshare001.me")
         pairs = crawl_idshare001(driver)
         nc = 0
         for p in pairs:
-            e = p.get("email", "").strip().lower()
-            pw = p.get("password", "").strip()
-            if not is_valid_email(e) or not pw or len(pw) < 4 or len(pw) > 64:
-                continue
-            if len(set(pw)) < 2:
-                continue
-            if "&amp;" in pw:
-                pw = pw.replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">")
-            if e not in records:
-                records[e] = {
-                    "id": uid(e), "email": e, "password": pw,
-                    "status": p.get("status", "正常"),
-                    "country": p.get("country", ""),
-                    "checked_at": p.get("checked_at", now_cst()),
-                    "source": "idshare001.me",
-                    "updated_at": now_cst(),
-                }
+            e, rec = _make_record(p, "idshare001.me")
+            if e and e not in records:
+                records[e] = rec
                 nc += 1
         source_stats["idshare001.me"] = nc
         logger.info(f"  → {nc} 条")
-
 
     finally:
         driver.quit()
@@ -634,10 +955,53 @@ def crawl_fast():
 
 
 if __name__ == "__main__":
-    output_path = os.environ.get("OUTPUT_FILE", "apple_ids.json")
-    records, source_stats = crawl_fast()
-    result = merge_and_save(records, output_path)
-    logger.info(
-        f"【快速爬虫完成】idshare001={source_stats.get('idshare001.me', 0)} "
-        f"JSON总计={result['total']}"
-    )
+    import sys
+
+    if len(sys.argv) >= 2 and sys.argv[1] == "test":
+        target = sys.argv[2] if len(sys.argv) >= 3 else "all"
+
+        def _print_results(name, results):
+            print(f"\n{'='*50}")
+            print(f"  站点: {name}  共 {len(results)} 条")
+            print(f"{'='*50}")
+            for i, r in enumerate(results[:5], 1):
+                print(f"  [{i}] email={r.get('email')}  password={r.get('password')}"
+                      f"  country={r.get('country')}  checked_at={r.get('checked_at')}")
+            if len(results) > 5:
+                print(f"  ... 还有 {len(results)-5} 条（只显示前5条）")
+            if not results:
+                print("  ⚠️  没有爬到任何数据，请检查网络或页面结构")
+
+        if target in ("all", "juzixp"):
+            print("\n▶ 测试 ios.juzixp.com ...")
+            _print_results("ios.juzixp.com", crawl_ios_juzixp())
+        if target in ("all", "us"):
+            print("\n▶ 测试 applexp/美区 ...")
+            _print_results("applexp/美区", crawl_applexp_us())
+        if target in ("all", "jp"):
+            print("\n▶ 测试 applexp/日区 ...")
+            _print_results("applexp/日区", crawl_applexp_jp())
+        if target in ("all", "hk"):
+            print("\n▶ 测试 applexp/港区 ...")
+            _print_results("applexp/港区", crawl_applexp_hk())
+        if target in ("all", "sck"):
+            print("\n▶ 测试 applexp/小火箭 ...")
+            _print_results("applexp/小火箭", crawl_applexp_shadowrocket())
+        if target in ("all", "idshare"):
+            print("\n▶ 测试 idshare001.me（启动 Chrome）...")
+            _driver = make_driver()
+            try:
+                _print_results("idshare001.me", crawl_idshare001(_driver))
+            finally:
+                _driver.quit()
+        print("\n✅ 测试完成，未写入任何文件")
+
+    else:
+        output_path = os.environ.get("OUTPUT_FILE", "apple_ids.json")
+        records, source_stats = crawl_fast()
+        result = merge_and_save(records, output_path)
+        logger.info(
+            "【快速爬虫完成】"
+            + " ".join(f"{k}={v}" for k, v in source_stats.items())
+            + f" JSON总计={result['total']}"
+        )

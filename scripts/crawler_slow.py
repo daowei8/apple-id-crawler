@@ -2,13 +2,14 @@
 """
 Apple ID 慢速爬虫 — crawler_slow.py
 负责低频更新站点（每 7 分钟爬一次）：
-  3. ccbaohe.com/appleID  — strategy_mailto_onclick（Cloudflare 保护邮箱 + onclick copy）
-  4. tkbaohe.com          — strategy_mailto_onclick（同 ccbaohe 结构）
-  5. id.btvda.top         — 直接请求 appleapi.omofunz.com/api/data（返回 list）
-  6. id.bocchi2b.top      — requests 静态 onclick 解析 / Selenium API 拦截
+  1. ccbaohe.com/appleID  — strategy_mailto_onclick（Cloudflare 保护邮箱 + onclick copy）
+  2. tkbaohe.com          — strategy_mailto_onclick（同 ccbaohe 结构）
+  3. id.btvda.top         — 直接请求 appleapi.omofunz.com/api/data（返回 list）
+  4. id.bocchi2b.top      — requests 静态 onclick 解析 / Selenium API 拦截
 
-结果合并写入 apple_ids.json（与 crawler_fast.py 共用同一文件）
-合并策略：保留现有 fast 站点账号，用本次新数据覆盖 slow 站点账号。
+注意：idfree.top 已移到 crawler_mid.py，本文件不再爬取。
+结果合并写入 apple_ids.json（与 crawler_fast.py / crawler_mid.py 共用同一文件）
+合并策略：保留现有 fast/mid 站点账号，用本次新数据覆盖 slow 站点账号。
 """
 
 import re, json, time, hashlib, logging, os
@@ -63,13 +64,16 @@ TIME_RE = re.compile(r"(20\d{2}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)")
 
 STATUS_BAD = {"异常", "不可用", "失效", "已失效", "locked", "invalid"}
 
-# 本爬虫负责的站点名
-SLOW_SOURCES = {"idfree.top", "ccbaohe.com/appleID", "tkbaohe.com", "id.btvda.top", "id.bocchi2b.top"}
+# idfree.top 已移到 mid，这里只保留真正慢速的站点
+SLOW_SOURCES = {"ccbaohe.com/appleID", "tkbaohe.com", "id.btvda.top", "id.bocchi2b.top"}
 
 SITE_ORDER = [
     "idfree.top", "idshare001.me",
+    "ios.juzixp.com",
+    "applexp/美区", "applexp/日区", "applexp/港区", "applexp/小火箭",
     "ccbaohe.com/appleID", "tkbaohe.com",
     "id.btvda.top", "id.bocchi2b.top",
+    "fx.xdd.net.tr",
 ]
 
 
@@ -300,11 +304,7 @@ def parse_vue_accounts(raw_list: list, site_name="", time_is_utc=False) -> list:
 
 
 def strategy_mailto_onclick(html: str) -> list:
-    """
-    ccbaohe / tkbaohe 专用：
-    邮箱从 data-cfemail 解码 或 mailto href
-    密码从 <button onclick="copy('xxx')">
-    """
+    """ccbaohe / tkbaohe 专用"""
     soup = BeautifulSoup(html, "lxml")
     results = []
 
@@ -441,7 +441,6 @@ def crawl_id_btvda_top(driver) -> list:
     except Exception as ex:
         logger.debug(f"  btvda direct API: {ex}")
 
-    # 兜底：Selenium + 拦截
     url = "https://id.btvda.top/"
     try:
         driver.get("about:blank")
@@ -481,7 +480,6 @@ def crawl_bocchi2b(driver) -> list:
             i += 1
         return results
 
-    # 1. requests 静态解析
     html = fetch_html(url)
     if html:
         r = parse_onclick(html)
@@ -489,7 +487,6 @@ def crawl_bocchi2b(driver) -> list:
             logger.info(f"  bocchi2b [requests] → {len(r)} 条")
             return dedup(r)
 
-    # 2. Selenium + API 拦截
     try:
         driver.get("about:blank")
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument",
@@ -504,7 +501,6 @@ def crawl_bocchi2b(driver) -> list:
             results = parse_vue_accounts(raw, "bocchi2b", time_is_utc=False)
             logger.info(f"  bocchi2b [API] → {len(results)} 条")
             return dedup(results)
-        # 3. Selenium page_source 兜底
         r = parse_onclick(driver.page_source)
         logger.info(f"  bocchi2b [selenium静态] → {len(r)} 条")
         return dedup(r)
@@ -513,127 +509,11 @@ def crawl_bocchi2b(driver) -> list:
         return []
 
 
-def crawl_idfree_top(driver) -> list:
-    """
-    idfree.top — 必须 Selenium 点击"我已阅读，继续查看账号"弹窗。
-    先尝试 requests 静态解析，大概率因弹窗失败，再 Selenium。
-    """
-    from bs4 import BeautifulSoup as _BS
-
-    def strategy_data_clipboard(html):
-        soup = _BS(html, "lxml")
-        results = []
-        seen = set()
-        for btn in soup.select("button[id^='username_'], a[id^='username_']"):
-            n = btn.get("id", "")[9:]
-            email = btn.get("data-clipboard-text", "").strip().lower()
-            if not is_valid_email(email) or email in seen:
-                continue
-            pw_btn = soup.select_one(f"#password_{n}")
-            if not pw_btn:
-                continue
-            pw = pw_btn.get("data-clipboard-text", "").strip()
-            if not pw or "@" in pw or len(pw) < 4:
-                continue
-            card = btn.find_parent(class_="card-body") or btn.find_parent(class_="card")
-            country = ""
-            if card:
-                for anc in card.parents:
-                    country = find_country(anc.get_text(" ", strip=True)[:300])
-                    if country:
-                        break
-            seen.add(email)
-            results.append({"email": email, "password": pw, "status": "正常",
-                             "checked_at": now_cst(), "country": country})
-        if results:
-            return results
-        for card in soup.select(".card-body"):
-            email = ""
-            for sel in [".copy-btn", "button.btn-primary[data-clipboard-text]"]:
-                b = card.select_one(sel)
-                if b:
-                    v = b.get("data-clipboard-text", "").strip().lower()
-                    if is_valid_email(v):
-                        email = v
-                        break
-            if not email or email in seen:
-                continue
-            pw = ""
-            for sel in [".copy-pass-btn", "button.btn-success[data-clipboard-text]"]:
-                b = card.select_one(sel)
-                if b:
-                    v = b.get("data-clipboard-text", "").strip()
-                    if v and "@" not in v and 4 <= len(v) <= 64:
-                        pw = v
-                        break
-            if not pw:
-                continue
-            country = ""
-            for anc in card.parents:
-                country = find_country(anc.get_text(" ", strip=True)[:300])
-                if country:
-                    break
-            seen.add(email)
-            results.append({"email": email, "password": pw, "status": "正常",
-                             "checked_at": now_cst(), "country": country})
-        return results
-
-    html = fetch_html("https://idfree.top/")
-    if html and "@" in html:
-        r = strategy_data_clipboard(html)
-        if r:
-            logger.info(f"  idfree.top [requests] → {len(r)} 条")
-            return dedup(r)
-
-    loaded = False
-    for url in ["https://idfree.top/", "https://www.idfree.top/"]:
-        try:
-            driver.get(url)
-            WebDriverWait(driver, 12).until(
-                lambda d: d.execute_script("return document.readyState") == "complete")
-            if len(driver.page_source) > 2000:
-                loaded = True
-                break
-        except Exception:
-            continue
-
-    if not loaded:
-        logger.info("  idfree.top 加载失败")
-        return []
-
-    time.sleep(2)
-    for xpath in [
-        "//button[contains(.,'我已阅读')]",
-        "//button[contains(.,'继续查看账号')]",
-        "//button[contains(.,'继续查看')]",
-        "//button[contains(.,'查看账号')]",
-    ]:
-        try:
-            btn = WebDriverWait(driver, 8).until(
-                EC.element_to_be_clickable((By.XPATH, xpath)))
-            driver.execute_script("arguments[0].click();", btn)
-            logger.info(f"  idfree 点击: {btn.text.strip()}")
-            time.sleep(2)
-            break
-        except Exception:
-            pass
-    close_popups(driver)
-    for _ in range(8):
-        driver.execute_script("window.scrollBy(0,700);")
-        time.sleep(0.5)
-    time.sleep(2)
-
-    results = strategy_data_clipboard(driver.page_source)
-    logger.info(f"  idfree.top 最终: {len(results)} 条")
-    return dedup(results)
-
-
 # ══════════════════════════════════════════
 # 站点配置
 # ══════════════════════════════════════════
 
 SITES = [
-    {"name": "idfree.top",           "fn": crawl_idfree_top},
     {"name": "ccbaohe.com/appleID",  "fn": crawl_ccbaohe},
     {"name": "tkbaohe.com",          "fn": crawl_tkbaohe},
     {"name": "id.btvda.top",         "fn": crawl_id_btvda_top},
@@ -646,12 +526,6 @@ SITES = [
 # ══════════════════════════════════════════
 
 def merge_and_save(slow_records: dict, output_path: str) -> dict:
-    """
-    1. 读取现有 apple_ids.json
-    2. 保留非 SLOW_SOURCES 的账号（fast 站点）
-    3. 用 slow_records 覆盖 slow 站点账号
-    4. 写回文件
-    """
     existing_accounts = []
     if Path(output_path).exists():
         try:
@@ -668,12 +542,20 @@ def merge_and_save(slow_records: dict, output_path: str) -> dict:
     for e, rec in slow_records.items():
         merged[e] = rec
 
-    order_map = {s: i for i, s in enumerate(SITE_ORDER)}
-    accounts = sorted(
-        merged.values(),
-        key=lambda a: (order_map.get(a.get("source", ""), 999),
-                       a.get("checked_at", "") or "")
-    )
+    # 按来源顺序，每个来源内部按 checked_at 降序（最新在前）
+    groups = {}
+    for a in merged.values():
+        src = a.get("source", "unknown")
+        groups.setdefault(src, []).append(a)
+    for src in groups:
+        groups[src].sort(key=lambda a: a.get("checked_at", "") or "", reverse=True)
+
+    accounts = []
+    for src in SITE_ORDER:
+        accounts.extend(groups.get(src, []))
+    for src, lst in groups.items():
+        if src not in SITE_ORDER:
+            accounts.extend(lst)
 
     source_stats = {}
     for a in accounts:
@@ -751,11 +633,50 @@ def crawl_slow():
 
 
 if __name__ == "__main__":
-    output_path = os.environ.get("OUTPUT_FILE", "apple_ids.json")
-    records, source_stats = crawl_slow()
-    result = merge_and_save(records, output_path)
-    logger.info(
-        f"【慢速爬虫完成】"
-        + " ".join(f"{k}={v}" for k, v in source_stats.items())
-        + f" JSON总计={result['total']}"
-    )
+    import sys
+
+    if len(sys.argv) >= 2 and sys.argv[1] == "test":
+        target = sys.argv[2] if len(sys.argv) >= 3 else "all"
+
+        def _print_results(name, results):
+            print(f"\n{'='*50}")
+            print(f"  站点: {name}  共 {len(results)} 条")
+            print(f"{'='*50}")
+            for i, r in enumerate(results[:5], 1):
+                print(f"  [{i}] email={r.get('email')}  password={r.get('password')}"
+                      f"  country={r.get('country')}  checked_at={r.get('checked_at')}")
+            if len(results) > 5:
+                print(f"  ... 还有 {len(results)-5} 条（只显示前5条）")
+            if not results:
+                print("  ⚠️  没有爬到任何数据，请检查网络或页面结构")
+
+        print("\n▶ 启动 Chrome ...")
+        _driver = make_driver()
+        try:
+            if target in ("all", "ccbaohe"):
+                print("\n▶ 测试 ccbaohe.com/appleID ...")
+                _print_results("ccbaohe.com/appleID", crawl_ccbaohe(_driver))
+            if target in ("all", "tkbaohe"):
+                print("\n▶ 测试 tkbaohe.com ...")
+                _print_results("tkbaohe.com", crawl_tkbaohe(_driver))
+            if target in ("all", "btvda"):
+                print("\n▶ 测试 id.btvda.top ...")
+                _print_results("id.btvda.top", crawl_id_btvda_top(_driver))
+            if target in ("all", "bocchi"):
+                print("\n▶ 测试 id.bocchi2b.top ...")
+                _print_results("id.bocchi2b.top", crawl_bocchi2b(_driver))
+        finally:
+            _driver.quit()
+            print("\n Chrome 已关闭")
+
+        print("\n✅ 测试完成，未写入任何文件")
+
+    else:
+        output_path = os.environ.get("OUTPUT_FILE", "apple_ids.json")
+        records, source_stats = crawl_slow()
+        result = merge_and_save(records, output_path)
+        logger.info(
+            f"【慢速爬虫完成】"
+            + " ".join(f"{k}={v}" for k, v in source_stats.items())
+            + f" JSON总计={result['total']}"
+        )

@@ -64,7 +64,7 @@ TIME_RE = re.compile(r"(20\d{2}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)")
 STATUS_BAD = {"异常", "不可用", "失效", "已失效", "locked", "invalid"}
 
 # 本爬虫负责的站点名
-SLOW_SOURCES = {"ccbaohe.com/appleID", "tkbaohe.com", "id.btvda.top", "id.bocchi2b.top"}
+SLOW_SOURCES = {"idfree.top", "ccbaohe.com/appleID", "tkbaohe.com", "id.btvda.top", "id.bocchi2b.top"}
 
 SITE_ORDER = [
     "idfree.top", "idshare001.me",
@@ -287,25 +287,13 @@ def parse_vue_accounts(raw_list: list, site_name="", time_is_utc=False) -> list:
         status_ok = (raw_status == 1) if isinstance(raw_status, int) else not bad(str(raw_status))
         raw_country = str(item.get("country") or item.get("region") or item.get("area") or "")
         country = find_country(raw_country) or "美国"
-        raw_time = str(item.get("time") or item.get("updated_at") or item.get("created_at") or "")
-        if time_is_utc and raw_time:
-            try:
-                m = re.search(r"(20\d{2}-\d{2}-\d{2}[\sT]\d{2}:\d{2}(?::\d{2})?)", raw_time)
-                if m:
-                    clean = m.group(1).replace("T", " ")
-                    if len(clean) == 16:
-                        clean += ":00"
-                    dt = datetime.strptime(clean, "%Y-%m-%d %H:%M:%S")
-                    raw_time = (dt + timedelta(hours=8)).strftime("%Y-%m-%d %H:%M:%S")
-            except Exception:
-                pass
         if not email or "@" not in email or not pw:
             continue
         if not is_valid_email(email) or not status_ok:
             continue
         results.append({
             "email": email, "password": pw, "status": "正常",
-            "checked_at": raw_time or now_cst(),
+            "checked_at": now_cst(),
             "country": country,
         })
     return results
@@ -525,15 +513,131 @@ def crawl_bocchi2b(driver) -> list:
         return []
 
 
+def crawl_idfree_top(driver) -> list:
+    """
+    idfree.top — 必须 Selenium 点击"我已阅读，继续查看账号"弹窗。
+    先尝试 requests 静态解析，大概率因弹窗失败，再 Selenium。
+    """
+    from bs4 import BeautifulSoup as _BS
+
+    def strategy_data_clipboard(html):
+        soup = _BS(html, "lxml")
+        results = []
+        seen = set()
+        for btn in soup.select("button[id^='username_'], a[id^='username_']"):
+            n = btn.get("id", "")[9:]
+            email = btn.get("data-clipboard-text", "").strip().lower()
+            if not is_valid_email(email) or email in seen:
+                continue
+            pw_btn = soup.select_one(f"#password_{n}")
+            if not pw_btn:
+                continue
+            pw = pw_btn.get("data-clipboard-text", "").strip()
+            if not pw or "@" in pw or len(pw) < 4:
+                continue
+            card = btn.find_parent(class_="card-body") or btn.find_parent(class_="card")
+            country = ""
+            if card:
+                for anc in card.parents:
+                    country = find_country(anc.get_text(" ", strip=True)[:300])
+                    if country:
+                        break
+            seen.add(email)
+            results.append({"email": email, "password": pw, "status": "正常",
+                             "checked_at": now_cst(), "country": country})
+        if results:
+            return results
+        for card in soup.select(".card-body"):
+            email = ""
+            for sel in [".copy-btn", "button.btn-primary[data-clipboard-text]"]:
+                b = card.select_one(sel)
+                if b:
+                    v = b.get("data-clipboard-text", "").strip().lower()
+                    if is_valid_email(v):
+                        email = v
+                        break
+            if not email or email in seen:
+                continue
+            pw = ""
+            for sel in [".copy-pass-btn", "button.btn-success[data-clipboard-text]"]:
+                b = card.select_one(sel)
+                if b:
+                    v = b.get("data-clipboard-text", "").strip()
+                    if v and "@" not in v and 4 <= len(v) <= 64:
+                        pw = v
+                        break
+            if not pw:
+                continue
+            country = ""
+            for anc in card.parents:
+                country = find_country(anc.get_text(" ", strip=True)[:300])
+                if country:
+                    break
+            seen.add(email)
+            results.append({"email": email, "password": pw, "status": "正常",
+                             "checked_at": now_cst(), "country": country})
+        return results
+
+    html = fetch_html("https://idfree.top/")
+    if html and "@" in html:
+        r = strategy_data_clipboard(html)
+        if r:
+            logger.info(f"  idfree.top [requests] → {len(r)} 条")
+            return dedup(r)
+
+    loaded = False
+    for url in ["https://idfree.top/", "https://www.idfree.top/"]:
+        try:
+            driver.get(url)
+            WebDriverWait(driver, 12).until(
+                lambda d: d.execute_script("return document.readyState") == "complete")
+            if len(driver.page_source) > 2000:
+                loaded = True
+                break
+        except Exception:
+            continue
+
+    if not loaded:
+        logger.info("  idfree.top 加载失败")
+        return []
+
+    time.sleep(2)
+    for xpath in [
+        "//button[contains(.,'我已阅读')]",
+        "//button[contains(.,'继续查看账号')]",
+        "//button[contains(.,'继续查看')]",
+        "//button[contains(.,'查看账号')]",
+    ]:
+        try:
+            btn = WebDriverWait(driver, 8).until(
+                EC.element_to_be_clickable((By.XPATH, xpath)))
+            driver.execute_script("arguments[0].click();", btn)
+            logger.info(f"  idfree 点击: {btn.text.strip()}")
+            time.sleep(2)
+            break
+        except Exception:
+            pass
+    close_popups(driver)
+    for _ in range(8):
+        driver.execute_script("window.scrollBy(0,700);")
+        time.sleep(0.5)
+    time.sleep(2)
+
+    results = strategy_data_clipboard(driver.page_source)
+    logger.info(f"  idfree.top 最终: {len(results)} 条")
+    return dedup(results)
+
+
 # ══════════════════════════════════════════
 # 站点配置
 # ══════════════════════════════════════════
 
 SITES = [
-    {"name": "ccbaohe.com/appleID", "fn": crawl_ccbaohe},
-    {"name": "tkbaohe.com",         "fn": crawl_tkbaohe},
-    {"name": "id.btvda.top",        "fn": crawl_id_btvda_top},
-    {"name": "id.bocchi2b.top",     "fn": crawl_bocchi2b},
+    {"name": "idfree.top",           "fn": crawl_idfree_top},
+    {"name": "ccbaohe.com/appleID",  "fn": crawl_ccbaohe},
+    {"name": "tkbaohe.com",          "fn": crawl_tkbaohe},
+    {"name": "id.btvda.top",         "fn": crawl_id_btvda_top},
+    {"name": "id.bocchi2b.top",      "fn": crawl_bocchi2b},
 ]
 
 

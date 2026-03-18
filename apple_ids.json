@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-18 11:41",
-  "total": 122,
+  "generated_at": "2026-03-18 11:43",
+  "total": 121,
   "source_stats": {
     "idfree.top": 2,
     "idshare001.me": 2,
@@ -12,7 +12,7 @@
     "ccbaohe.com/appleID": 65,
     "tkbaohe.com": 7,
     "id.btvda.top": 8,
-    "fx.xdd.net.tr": 5
+    "fx.xdd.net.tr": 4
   },
   "accounts": [
     {
@@ -21,9 +21,9 @@
       "password": "BpWnbb2ZQP",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-18 11:37:23",
+      "checked_at": "2026-03-18 11:43:14",
       "source": "idfree.top",
-      "updated_at": "2026-03-18 11:37:23"
+      "updated_at": "2026-03-18 11:43:14"
     },
     {
       "id": "9255e5bba61f",
@@ -31,9 +31,9 @@
       "password": "nzxfa8wSH4",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-18 11:37:23",
+      "checked_at": "2026-03-18 11:43:14",
       "source": "idfree.top",
-      "updated_at": "2026-03-18 11:37:23"
+      "updated_at": "2026-03-18 11:43:14"
     },
     {
       "id": "1082704efbcb",
@@ -1186,6 +1186,16 @@
       "updated_at": "2026-03-18 10:13:08"
     },
     {
+      "id": "64ae0d50430d",
+      "email": "aggt.do4vdbugrs@outlook.com",
+      "password": "sQpnGa9kNs",
+      "status": "正常",
+      "country": "香港",
+      "checked_at": "2026-03-18 11:39:25",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-18 11:43:28"
+    },
+    {
       "id": "05168643b20f",
       "email": "ecdsa4304652914@icloud.com",
       "password": "NgS56EhkZ5",
@@ -1193,7 +1203,7 @@
       "country": "美国",
       "checked_at": "2026-03-18 11:31:25",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 11:37:37"
+      "updated_at": "2026-03-18 11:43:28"
     },
     {
       "id": "c72d1852d7df",
@@ -1203,7 +1213,7 @@
       "country": "中国大陆",
       "checked_at": "2026-03-18 11:27:25",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 11:37:37"
+      "updated_at": "2026-03-18 11:43:28"
     },
     {
       "id": "770bdde72d41",
@@ -1213,27 +1223,7 @@
       "country": "日本",
       "checked_at": "2026-03-18 11:21:32",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 11:37:37"
-    },
-    {
-      "id": "dd51259f2651",
-      "email": "kotcuuxien@cnap.biz",
-      "password": "vs4755SmQD",
-      "status": "正常",
-      "country": "台湾",
-      "checked_at": "2026-03-18 11:17:28",
-      "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 11:37:37"
-    },
-    {
-      "id": "64ae0d50430d",
-      "email": "aggt.do4vdbugrs@outlook.com",
-      "password": "sQpnGa9kNs",
-      "status": "正常",
-      "country": "香港",
-      "checked_at": "2026-03-18 11:16:25",
-      "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 11:37:37"
+      "updated_at": "2026-03-18 11:43:28"
     }
   ]
 }

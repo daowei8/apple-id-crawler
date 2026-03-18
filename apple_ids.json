@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-18 23:47",
+  "generated_at": "2026-03-18 23:49",
   "total": 143,
   "source_stats": {
     "idfree.top": 2,
@@ -18,12 +18,12 @@
     {
       "id": "94a9cb0b7947",
       "email": "rjfeymlt0028@icloud.com",
-      "password": "CF7SDwvXWF",
+      "password": "emNXzH4YFq",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-18 23:47:35",
+      "checked_at": "2026-03-18 23:49:31",
       "source": "idfree.top",
-      "updated_at": "2026-03-18 23:47:35"
+      "updated_at": "2026-03-18 23:49:32"
     },
     {
       "id": "9255e5bba61f",
@@ -31,9 +31,9 @@
       "password": "AxCYW9eCKr",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-18 23:47:35",
+      "checked_at": "2026-03-18 23:49:31",
       "source": "idfree.top",
-      "updated_at": "2026-03-18 23:47:35"
+      "updated_at": "2026-03-18 23:49:32"
     },
     {
       "id": "7b07ee4996f3",
@@ -1403,7 +1403,7 @@
       "country": "香港",
       "checked_at": "2026-03-18 23:47:35",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 23:47:49"
+      "updated_at": "2026-03-18 23:49:46"
     },
     {
       "id": "770bdde72d41",
@@ -1413,7 +1413,7 @@
       "country": "日本",
       "checked_at": "2026-03-18 23:46:24",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 23:47:49"
+      "updated_at": "2026-03-18 23:49:46"
     },
     {
       "id": "dd51259f2651",
@@ -1423,7 +1423,7 @@
       "country": "台湾",
       "checked_at": "2026-03-18 23:42:31",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 23:47:49"
+      "updated_at": "2026-03-18 23:49:46"
     },
     {
       "id": "05168643b20f",
@@ -1433,7 +1433,7 @@
       "country": "美国",
       "checked_at": "2026-03-18 23:33:25",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 23:47:49"
+      "updated_at": "2026-03-18 23:49:46"
     },
     {
       "id": "c72d1852d7df",
@@ -1443,7 +1443,7 @@
       "country": "中国大陆",
       "checked_at": "2026-03-18 23:30:24",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 23:47:49"
+      "updated_at": "2026-03-18 23:49:46"
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-18 18:59",
+  "generated_at": "2026-03-18 19:01",
   "total": 121,
   "source_stats": {
     "idfree.top": 2,
@@ -21,9 +21,9 @@
       "password": "eMWEH4R96m",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-18 18:57:26",
+      "checked_at": "2026-03-18 19:01:33",
       "source": "idfree.top",
-      "updated_at": "2026-03-18 18:57:26"
+      "updated_at": "2026-03-18 19:01:33"
     },
     {
       "id": "9255e5bba61f",
@@ -31,9 +31,9 @@
       "password": "3rfUkdBXhJ",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-18 18:57:26",
+      "checked_at": "2026-03-18 19:01:33",
       "source": "idfree.top",
-      "updated_at": "2026-03-18 18:57:26"
+      "updated_at": "2026-03-18 19:01:33"
     },
     {
       "id": "7b07ee4996f3",
@@ -1176,6 +1176,16 @@
       "updated_at": "2026-03-18 17:53:05"
     },
     {
+      "id": "770bdde72d41",
+      "email": "yaniravoeg@eml.ru",
+      "password": "AW1QnFz7rD",
+      "status": "正常",
+      "country": "日本",
+      "checked_at": "2026-03-18 19:01:24",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-18 19:01:48"
+    },
+    {
       "id": "dd51259f2651",
       "email": "kotcuuxien@cnap.biz",
       "password": "vs4755SmQD",
@@ -1183,7 +1193,7 @@
       "country": "台湾",
       "checked_at": "2026-03-18 18:56:21",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 18:57:40"
+      "updated_at": "2026-03-18 19:01:48"
     },
     {
       "id": "05168643b20f",
@@ -1193,7 +1203,7 @@
       "country": "美国",
       "checked_at": "2026-03-18 18:52:37",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 18:57:40"
+      "updated_at": "2026-03-18 19:01:48"
     },
     {
       "id": "64ae0d50430d",
@@ -1203,7 +1213,7 @@
       "country": "香港",
       "checked_at": "2026-03-18 18:52:31",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 18:57:40"
+      "updated_at": "2026-03-18 19:01:48"
     },
     {
       "id": "c72d1852d7df",
@@ -1213,17 +1223,7 @@
       "country": "中国大陆",
       "checked_at": "2026-03-18 18:45:29",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 18:57:40"
-    },
-    {
-      "id": "770bdde72d41",
-      "email": "yaniravoeg@eml.ru",
-      "password": "AW1QnFz7rD",
-      "status": "正常",
-      "country": "日本",
-      "checked_at": "2026-03-18 18:39:26",
-      "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-18 18:57:40"
+      "updated_at": "2026-03-18 19:01:48"
     }
   ]
 }

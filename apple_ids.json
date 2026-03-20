@@ -1,8 +1,7 @@
 {
-  "generated_at": "2026-03-21 00:05",
-  "total": 132,
+  "generated_at": "2026-03-21 00:08",
+  "total": 130,
   "source_stats": {
-    "idfree.top": 2,
     "idshare001.me": 2,
     "ios.juzixp.com": 3,
     "applexp/美区": 17,
@@ -16,26 +15,6 @@
     "fx.xdd.net.tr": 5
   },
   "accounts": [
-    {
-      "id": "d91481a20252",
-      "email": "becker08n40m6f698113@icloud.com",
-      "password": "2vXFNsf6X7",
-      "status": "正常",
-      "country": "",
-      "checked_at": "2026-03-21 00:05:17",
-      "source": "idfree.top",
-      "updated_at": "2026-03-21 00:05:17"
-    },
-    {
-      "id": "a1d009db43a1",
-      "email": "me2d3r3ti4bw33hz5ssu@icloud.com",
-      "password": "h1Y21F285r",
-      "status": "正常",
-      "country": "",
-      "checked_at": "2026-03-21 00:05:17",
-      "source": "idfree.top",
-      "updated_at": "2026-03-21 00:05:17"
-    },
     {
       "id": "7b07ee4996f3",
       "email": "idshare.me_u223hw@icloud.com",
@@ -1287,6 +1266,16 @@
       "updated_at": "2026-03-20 22:38:58"
     },
     {
+      "id": "770bdde72d41",
+      "email": "yaniravoeg@eml.ru",
+      "password": "AW1QnFz7rD",
+      "status": "正常",
+      "country": "日本",
+      "checked_at": "2026-03-21 00:06:27",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-21 00:08:02"
+    },
+    {
       "id": "c72d1852d7df",
       "email": "bertiefertig89v@eml.ru",
       "password": "4FwsBGPuK4",
@@ -1294,7 +1283,7 @@
       "country": "中国大陆",
       "checked_at": "2026-03-21 00:03:31",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 00:05:32"
+      "updated_at": "2026-03-21 00:08:02"
     },
     {
       "id": "dd51259f2651",
@@ -1304,7 +1293,7 @@
       "country": "台湾",
       "checked_at": "2026-03-20 23:56:31",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 00:05:32"
+      "updated_at": "2026-03-21 00:08:02"
     },
     {
       "id": "64ae0d50430d",
@@ -1314,7 +1303,7 @@
       "country": "香港",
       "checked_at": "2026-03-20 23:55:27",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 00:05:32"
+      "updated_at": "2026-03-21 00:08:02"
     },
     {
       "id": "05168643b20f",
@@ -1324,17 +1313,7 @@
       "country": "美国",
       "checked_at": "2026-03-20 23:53:25",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 00:05:32"
-    },
-    {
-      "id": "770bdde72d41",
-      "email": "yaniravoeg@eml.ru",
-      "password": "AW1QnFz7rD",
-      "status": "正常",
-      "country": "日本",
-      "checked_at": "2026-03-20 23:44:29",
-      "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 00:05:32"
+      "updated_at": "2026-03-21 00:08:02"
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-20 20:29",
-  "total": 143,
+  "generated_at": "2026-03-20 20:31",
+  "total": 146,
   "source_stats": {
     "idfree.top": 2,
     "idshare001.me": 2,
@@ -12,7 +12,8 @@
     "ccbaohe.com/appleID": 70,
     "tkbaohe.com": 11,
     "id.btvda.top": 24,
-    "id.bocchi2b.top": 1
+    "id.bocchi2b.top": 1,
+    "fx.xdd.net.tr": 3
   },
   "accounts": [
     {
@@ -21,9 +22,9 @@
       "password": "2vXFNsf6X7",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-20 20:01:24",
+      "checked_at": "2026-03-20 20:31:22",
       "source": "idfree.top",
-      "updated_at": "2026-03-20 20:01:24"
+      "updated_at": "2026-03-20 20:31:22"
     },
     {
       "id": "a1d009db43a1",
@@ -31,9 +32,9 @@
       "password": "uc1xWu47ur",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-20 20:01:24",
+      "checked_at": "2026-03-20 20:31:22",
       "source": "idfree.top",
-      "updated_at": "2026-03-20 20:01:24"
+      "updated_at": "2026-03-20 20:31:22"
     },
     {
       "id": "7b07ee4996f3",
@@ -1444,6 +1445,36 @@
       "checked_at": "2026-03-20 20:24:02",
       "source": "id.bocchi2b.top",
       "updated_at": "2026-03-20 20:24:02"
+    },
+    {
+      "id": "c72d1852d7df",
+      "email": "bertiefertig89v@eml.ru",
+      "password": "4FwsBGPuK4",
+      "status": "正常",
+      "country": "中国大陆",
+      "checked_at": "2026-03-20 20:26:33",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-20 20:31:36"
+    },
+    {
+      "id": "770bdde72d41",
+      "email": "yaniravoeg@eml.ru",
+      "password": "AW1QnFz7rD",
+      "status": "正常",
+      "country": "日本",
+      "checked_at": "2026-03-20 20:26:27",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-20 20:31:36"
+    },
+    {
+      "id": "dd51259f2651",
+      "email": "kotcuuxien@cnap.biz",
+      "password": "vs4755SmQD",
+      "status": "正常",
+      "country": "台湾",
+      "checked_at": "2026-03-20 20:18:21",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-20 20:31:36"
     }
   ]
 }

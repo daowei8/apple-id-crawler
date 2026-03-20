@@ -1,7 +1,8 @@
 {
-  "generated_at": "2026-03-21 01:59",
-  "total": 115,
+  "generated_at": "2026-03-21 02:01",
+  "total": 119,
   "source_stats": {
+    "idfree.top": 2,
     "idshare001.me": 2,
     "ios.juzixp.com": 21,
     "applexp/美区": 1,
@@ -11,9 +12,29 @@
     "tkbaohe.com": 7,
     "id.btvda.top": 10,
     "id.bocchi2b.top": 1,
-    "fx.xdd.net.tr": 3
+    "fx.xdd.net.tr": 5
   },
   "accounts": [
+    {
+      "id": "d91481a20252",
+      "email": "becker08n40m6f698113@icloud.com",
+      "password": "2vXFNsf6X7",
+      "status": "正常",
+      "country": "",
+      "checked_at": "2026-03-21 02:01:25",
+      "source": "idfree.top",
+      "updated_at": "2026-03-21 02:01:25"
+    },
+    {
+      "id": "a1d009db43a1",
+      "email": "me2d3r3ti4bw33hz5ssu@icloud.com",
+      "password": "y27cXGqAVv",
+      "status": "正常",
+      "country": "",
+      "checked_at": "2026-03-21 02:01:25",
+      "source": "idfree.top",
+      "updated_at": "2026-03-21 02:01:25"
+    },
     {
       "id": "7b07ee4996f3",
       "email": "idshare.me_u223hw@icloud.com",
@@ -1140,9 +1161,9 @@
       "password": "AW1QnFz7rD",
       "status": "正常",
       "country": "日本",
-      "checked_at": "2026-03-21 01:12:23",
+      "checked_at": "2026-03-21 01:56:27",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 01:13:45"
+      "updated_at": "2026-03-21 02:01:40"
     },
     {
       "id": "c72d1852d7df",
@@ -1150,9 +1171,9 @@
       "password": "4FwsBGPuK4",
       "status": "正常",
       "country": "中国大陆",
-      "checked_at": "2026-03-21 01:09:29",
+      "checked_at": "2026-03-21 01:53:29",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 01:13:45"
+      "updated_at": "2026-03-21 02:01:40"
     },
     {
       "id": "64ae0d50430d",
@@ -1160,9 +1181,29 @@
       "password": "sQpnGa9kNs",
       "status": "正常",
       "country": "香港",
-      "checked_at": "2026-03-21 01:04:58",
+      "checked_at": "2026-03-21 01:49:24",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 01:13:45"
+      "updated_at": "2026-03-21 02:01:40"
+    },
+    {
+      "id": "dd51259f2651",
+      "email": "kotcuuxien@cnap.biz",
+      "password": "vs4755SmQD",
+      "status": "正常",
+      "country": "台湾",
+      "checked_at": "2026-03-21 01:44:26",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-21 02:01:40"
+    },
+    {
+      "id": "05168643b20f",
+      "email": "ecdsa4304652914@icloud.com",
+      "password": "NgS56EhkZ5",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 01:43:24",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-21 02:01:40"
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-20 13:05",
+  "generated_at": "2026-03-20 13:07",
   "total": 144,
   "source_stats": {
     "idfree.top": 2,
@@ -22,9 +22,9 @@
       "password": "vE1KXy8fGQ",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-20 13:01:27",
+      "checked_at": "2026-03-20 13:07:22",
       "source": "idfree.top",
-      "updated_at": "2026-03-20 13:01:27"
+      "updated_at": "2026-03-20 13:07:22"
     },
     {
       "id": "a1d009db43a1",
@@ -32,9 +32,9 @@
       "password": "BZy6EDDyVQ",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-20 13:01:27",
+      "checked_at": "2026-03-20 13:07:22",
       "source": "idfree.top",
-      "updated_at": "2026-03-20 13:01:27"
+      "updated_at": "2026-03-20 13:07:22"
     },
     {
       "id": "1082704efbcb",
@@ -1414,7 +1414,7 @@
       "country": "台湾",
       "checked_at": "2026-03-20 13:01:21",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 13:01:41"
+      "updated_at": "2026-03-20 13:07:36"
     },
     {
       "id": "05168643b20f",
@@ -1424,7 +1424,7 @@
       "country": "美国",
       "checked_at": "2026-03-20 12:57:23",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 13:01:41"
+      "updated_at": "2026-03-20 13:07:36"
     },
     {
       "id": "64ae0d50430d",
@@ -1434,7 +1434,7 @@
       "country": "香港",
       "checked_at": "2026-03-20 12:54:22",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 13:01:41"
+      "updated_at": "2026-03-20 13:07:36"
     },
     {
       "id": "c72d1852d7df",
@@ -1444,7 +1444,7 @@
       "country": "中国大陆",
       "checked_at": "2026-03-20 12:48:21",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 13:01:41"
+      "updated_at": "2026-03-20 13:07:36"
     },
     {
       "id": "770bdde72d41",
@@ -1454,7 +1454,7 @@
       "country": "日本",
       "checked_at": "2026-03-20 12:47:24",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 13:01:41"
+      "updated_at": "2026-03-20 13:07:36"
     }
   ]
 }

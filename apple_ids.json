@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-20 22:07",
-  "total": 128,
+  "generated_at": "2026-03-20 22:09",
+  "total": 129,
   "source_stats": {
     "idfree.top": 2,
     "idshare001.me": 2,
@@ -13,7 +13,7 @@
     "tkbaohe.com": 9,
     "id.btvda.top": 12,
     "id.bocchi2b.top": 4,
-    "fx.xdd.net.tr": 3
+    "fx.xdd.net.tr": 4
   },
   "accounts": [
     {
@@ -22,9 +22,9 @@
       "password": "2vXFNsf6X7",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-20 21:51:12",
+      "checked_at": "2026-03-20 22:09:34",
       "source": "idfree.top",
-      "updated_at": "2026-03-20 21:51:12"
+      "updated_at": "2026-03-20 22:09:34"
     },
     {
       "id": "a1d009db43a1",
@@ -32,9 +32,9 @@
       "password": "uc1xWu47ur",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-20 21:51:12",
+      "checked_at": "2026-03-20 22:09:34",
       "source": "idfree.top",
-      "updated_at": "2026-03-20 21:51:12"
+      "updated_at": "2026-03-20 22:09:34"
     },
     {
       "id": "7b07ee4996f3",
@@ -1267,14 +1267,24 @@
       "updated_at": "2026-03-20 21:59:01"
     },
     {
+      "id": "dd51259f2651",
+      "email": "kotcuuxien@cnap.biz",
+      "password": "vs4755SmQD",
+      "status": "正常",
+      "country": "台湾",
+      "checked_at": "2026-03-20 22:07:27",
+      "source": "fx.xdd.net.tr",
+      "updated_at": "2026-03-20 22:09:48"
+    },
+    {
       "id": "05168643b20f",
       "email": "ecdsa4304652914@icloud.com",
       "password": "NgS56EhkZ5",
       "status": "正常",
       "country": "美国",
-      "checked_at": "2026-03-20 21:41:30",
+      "checked_at": "2026-03-20 22:03:25",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 21:51:26"
+      "updated_at": "2026-03-20 22:09:48"
     },
     {
       "id": "64ae0d50430d",
@@ -1282,9 +1292,9 @@
       "password": "sQpnGa9kNs",
       "status": "正常",
       "country": "香港",
-      "checked_at": "2026-03-20 21:37:30",
+      "checked_at": "2026-03-20 22:00:23",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 21:51:26"
+      "updated_at": "2026-03-20 22:09:48"
     },
     {
       "id": "770bdde72d41",
@@ -1292,9 +1302,9 @@
       "password": "AW1QnFz7rD",
       "status": "正常",
       "country": "日本",
-      "checked_at": "2026-03-20 21:32:26",
+      "checked_at": "2026-03-20 21:54:25",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 21:51:26"
+      "updated_at": "2026-03-20 22:09:48"
     }
   ]
 }

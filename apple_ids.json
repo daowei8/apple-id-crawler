@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-20 19:47",
-  "total": 141,
+  "generated_at": "2026-03-20 19:49",
+  "total": 137,
   "source_stats": {
     "idfree.top": 2,
     "idshare001.me": 2,
@@ -12,8 +12,7 @@
     "ccbaohe.com/appleID": 64,
     "tkbaohe.com": 17,
     "id.btvda.top": 14,
-    "id.bocchi2b.top": 5,
-    "fx.xdd.net.tr": 4
+    "id.bocchi2b.top": 5
   },
   "accounts": [
     {
@@ -22,19 +21,19 @@
       "password": "2vXFNsf6X7",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-20 18:39:23",
+      "checked_at": "2026-03-20 19:49:26",
       "source": "idfree.top",
-      "updated_at": "2026-03-20 18:39:23"
+      "updated_at": "2026-03-20 19:49:26"
     },
     {
       "id": "a1d009db43a1",
       "email": "me2d3r3ti4bw33hz5ssu@icloud.com",
-      "password": "PAg9EkhTtZ",
+      "password": "uc1xWu47ur",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-20 18:39:23",
+      "checked_at": "2026-03-20 19:49:26",
       "source": "idfree.top",
-      "updated_at": "2026-03-20 18:39:23"
+      "updated_at": "2026-03-20 19:49:26"
     },
     {
       "id": "7b07ee4996f3",
@@ -1385,46 +1384,6 @@
       "checked_at": "2026-03-20 19:39:01",
       "source": "id.bocchi2b.top",
       "updated_at": "2026-03-20 19:39:01"
-    },
-    {
-      "id": "770bdde72d41",
-      "email": "yaniravoeg@eml.ru",
-      "password": "AW1QnFz7rD",
-      "status": "正常",
-      "country": "日本",
-      "checked_at": "2026-03-20 18:38:28",
-      "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 18:39:37"
-    },
-    {
-      "id": "c72d1852d7df",
-      "email": "bertiefertig89v@eml.ru",
-      "password": "4FwsBGPuK4",
-      "status": "正常",
-      "country": "中国大陆",
-      "checked_at": "2026-03-20 18:38:23",
-      "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 18:39:37"
-    },
-    {
-      "id": "64ae0d50430d",
-      "email": "aggt.do4vdbugrs@outlook.com",
-      "password": "sQpnGa9kNs",
-      "status": "正常",
-      "country": "香港",
-      "checked_at": "2026-03-20 18:37:23",
-      "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 18:39:37"
-    },
-    {
-      "id": "05168643b20f",
-      "email": "ecdsa4304652914@icloud.com",
-      "password": "NgS56EhkZ5",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-20 18:27:29",
-      "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-20 18:39:37"
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-03-21 15:59",
-  "total": 139,
+  "generated_at": "2026-03-21 16:01",
+  "total": 138,
   "source_stats": {
     "idfree.top": 2,
     "idshare001.me": 2,
@@ -13,7 +13,7 @@
     "tkbaohe.com": 9,
     "id.btvda.top": 15,
     "id.bocchi2b.top": 1,
-    "fx.xdd.net.tr": 4
+    "fx.xdd.net.tr": 3
   },
   "accounts": [
     {
@@ -22,9 +22,9 @@
       "password": "D2s3whGm5x",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-21 15:53:28",
+      "checked_at": "2026-03-21 16:01:42",
       "source": "idfree.top",
-      "updated_at": "2026-03-21 15:53:28"
+      "updated_at": "2026-03-21 16:01:42"
     },
     {
       "id": "a1d009db43a1",
@@ -32,9 +32,9 @@
       "password": "S8Kv6WGN8A",
       "status": "正常",
       "country": "",
-      "checked_at": "2026-03-21 15:53:28",
+      "checked_at": "2026-03-21 16:01:42",
       "source": "idfree.top",
-      "updated_at": "2026-03-21 15:53:28"
+      "updated_at": "2026-03-21 16:01:42"
     },
     {
       "id": "7b07ee4996f3",
@@ -1374,7 +1374,7 @@
       "country": "日本",
       "checked_at": "2026-03-21 15:53:26",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 15:53:42"
+      "updated_at": "2026-03-21 16:01:56"
     },
     {
       "id": "c72d1852d7df",
@@ -1384,7 +1384,7 @@
       "country": "中国大陆",
       "checked_at": "2026-03-21 15:49:27",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 15:53:42"
+      "updated_at": "2026-03-21 16:01:56"
     },
     {
       "id": "64ae0d50430d",
@@ -1394,17 +1394,7 @@
       "country": "香港",
       "checked_at": "2026-03-21 15:46:27",
       "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 15:53:42"
-    },
-    {
-      "id": "dd51259f2651",
-      "email": "kotcuuxien@cnap.biz",
-      "password": "vs4755SmQD",
-      "status": "正常",
-      "country": "台湾",
-      "checked_at": "2026-03-21 15:38:25",
-      "source": "fx.xdd.net.tr",
-      "updated_at": "2026-03-21 15:53:42"
+      "updated_at": "2026-03-21 16:01:56"
     }
   ]
 }

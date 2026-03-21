@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-03-21 13:07",
+  "generated_at": "2026-03-21 13:08",
   "total": 144,
   "source_stats": {
     "idfree.top": 2,
     "idshare001.me": 2,
-    "ios.juzixp.com": 3,
-    "applexp/美区": 17,
+    "ios.juzixp.com": 21,
+    "applexp/美区": 1,
     "applexp/日区": 6,
-    "applexp/港区": 6,
+    "applexp/港区": 4,
     "applexp/小火箭": 1,
     "ccbaohe.com/appleID": 76,
     "tkbaohe.com": 10,
@@ -42,9 +42,9 @@
       "password": "wUm&Ll0G",
       "status": "正常",
       "country": "美国",
-      "checked_at": "2026-03-21 13:07:45",
+      "checked_at": "2026-03-21 13:08:46",
       "source": "idshare001.me",
-      "updated_at": "2026-03-21 13:07:45"
+      "updated_at": "2026-03-21 13:08:46"
     },
     {
       "id": "e6fd85a28c46",
@@ -52,39 +52,9 @@
       "password": "W4b#aGjX",
       "status": "正常",
       "country": "美国",
-      "checked_at": "2026-03-21 13:07:45",
+      "checked_at": "2026-03-21 13:08:46",
       "source": "idshare001.me",
-      "updated_at": "2026-03-21 13:07:45"
-    },
-    {
-      "id": "0c1393a3a3a7",
-      "email": "bottledroaring87957@icloud.com",
-      "password": "K3hAdhJdsF",
-      "status": "正常",
-      "country": "",
-      "checked_at": "2026-03-21 13:03",
-      "source": "ios.juzixp.com",
-      "updated_at": "2026-03-21 13:07:42"
-    },
-    {
-      "id": "217d5532775b",
-      "email": "carllxe51009@icloud.com",
-      "password": "BtrhhJ6kK5",
-      "status": "正常",
-      "country": "",
-      "checked_at": "2026-03-21 12:47",
-      "source": "ios.juzixp.com",
-      "updated_at": "2026-03-21 13:07:42"
-    },
-    {
-      "id": "53f278ff3d10",
-      "email": "bwxkaren32984@icloud.com",
-      "password": "1nGuJYyDyQ",
-      "status": "正常",
-      "country": "",
-      "checked_at": "2026-03-21 12:46",
-      "source": "ios.juzixp.com",
-      "updated_at": "2026-03-21 13:07:42"
+      "updated_at": "2026-03-21 13:08:46"
     },
     {
       "id": "ef7ff97ee905",
@@ -92,9 +62,9 @@
       "password": "QETaXjC99B",
       "status": "正常",
       "country": "美国",
-      "checked_at": "2026-03-21 13:05:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
+      "checked_at": "2026-03-21 13:06",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
     },
     {
       "id": "3be6c822c004",
@@ -102,9 +72,9 @@
       "password": "C6bN3JEQxnNac",
       "status": "正常",
       "country": "美国",
-      "checked_at": "2026-03-21 13:04:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
+      "checked_at": "2026-03-21 13:05",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
     },
     {
       "id": "053846a7c736",
@@ -112,9 +82,19 @@
       "password": "VBmHzu5154",
       "status": "正常",
       "country": "美国",
-      "checked_at": "2026-03-21 13:04:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
+      "checked_at": "2026-03-21 13:05",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "0c1393a3a3a7",
+      "email": "bottledroaring87957@icloud.com",
+      "password": "K3hAdhJdsF",
+      "status": "正常",
+      "country": "",
+      "checked_at": "2026-03-21 13:04",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
     },
     {
       "id": "abef7666d345",
@@ -122,219 +102,9 @@
       "password": "nvynZ4uj5J",
       "status": "正常",
       "country": "美国",
-      "checked_at": "2026-03-21 13:02:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "e5a3907bb587",
-      "email": "leooscar576wbxj@gmail.com",
-      "password": "qkTJh2QEGF",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 13:00:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "9d23efde070f",
-      "email": "larrysc28ilg@icloud.com",
-      "password": "kePwT6E5MP",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:54:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "4b87d9d21860",
-      "email": "jonrsf83125@icloud.com",
-      "password": "d4m42xUBnM",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:52:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "2de9017abe63",
-      "email": "adamaxt65635@icloud.com",
-      "password": "5Cm3zK2aBT",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:51:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "bc66c7738d9d",
-      "email": "esmeharley260rhdy@gmail.com",
-      "password": "q8Ff617kDK",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:51:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "67364912cc9f",
-      "email": "kuq6ji@163.com",
-      "password": "B4traFUFqj",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:50:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "6ddc1493afcd",
-      "email": "buddinganvil8143@icloud.com",
-      "password": "AvQ4YawSTr",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:49:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "29aa5e34e57b",
-      "email": "renatahadnotqw@hotmail.com",
-      "password": "TDPywJ7Sd4sw",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:47:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "617ce2f243c5",
-      "email": "depletesolstice13615@icloud.com",
-      "password": "6vR5e8XUrN",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:46:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "1a2b6432f2d2",
-      "email": "nbrvc11222@hotmail.com",
-      "password": "RVdE5JjDWs",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:45:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "17114348e22e",
-      "email": "myzpena@hotmail.com",
-      "password": "DkDAY9KxRB",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:43:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "0b21129db149",
-      "email": "etcsuma@hotmail.com",
-      "password": "sw6B#IO9",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:41:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "8521410c84bb",
-      "email": "sharonvzz39000@icloud.com",
-      "password": "wmPja7rvbe",
-      "status": "正常",
-      "country": "美国",
-      "checked_at": "2026-03-21 12:38:00",
-      "source": "applexp/美区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "40b3ec9edd2f",
-      "email": "rennai8860642@163.com",
-      "password": "TDDYSp5FMyTF",
-      "status": "正常",
-      "country": "日本",
-      "checked_at": "2026-03-21 13:01:00",
-      "source": "applexp/日区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "a0ed7dfa6084",
-      "email": "zourao55555555@163.com",
-      "password": "hqRY0U2!",
-      "status": "正常",
-      "country": "日本",
-      "checked_at": "2026-03-21 12:56:00",
-      "source": "applexp/日区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "6a93e8c9d537",
-      "email": "txrjawe42453@hotmail.com",
-      "password": "Cf3zeASBn4",
-      "status": "正常",
-      "country": "日本",
-      "checked_at": "2026-03-21 12:47:00",
-      "source": "applexp/日区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "a215b05a1bbe",
-      "email": "longsha433399@163.com",
-      "password": "TDBTk5tgMSYf",
-      "status": "正常",
-      "country": "日本",
-      "checked_at": "2026-03-21 12:45:00",
-      "source": "applexp/日区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "e1ec364472d6",
-      "email": "cookalexandergraeme@gmail.com",
-      "password": "Bc538672",
-      "status": "正常",
-      "country": "日本",
-      "checked_at": "2026-03-21 12:43:00",
-      "source": "applexp/日区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "6ae79ba1fac0",
-      "email": "hudsonefrdarnold@outlook.com",
-      "password": "r#A67L6c",
-      "status": "正常",
-      "country": "日本",
-      "checked_at": "2026-03-21 12:39:00",
-      "source": "applexp/日区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "768e8b61c1da",
-      "email": "uyeswruopty4@icloud.com",
-      "password": "8sDAKrfnN7",
-      "status": "正常",
-      "country": "香港",
-      "checked_at": "2026-03-21 13:07:00",
-      "source": "applexp/港区",
-      "updated_at": "2026-03-21 13:07:40"
-    },
-    {
-      "id": "8584f2573c52",
-      "email": "vuetok33093@hotmail.com",
-      "password": "68yC8W3SHR",
-      "status": "正常",
-      "country": "香港",
-      "checked_at": "2026-03-21 13:07:00",
-      "source": "applexp/港区",
-      "updated_at": "2026-03-21 13:07:40"
+      "checked_at": "2026-03-21 13:03",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
     },
     {
       "id": "83ed079dddaf",
@@ -342,9 +112,19 @@
       "password": "q7B6y2ktE9",
       "status": "正常",
       "country": "香港",
-      "checked_at": "2026-03-21 13:00:00",
-      "source": "applexp/港区",
-      "updated_at": "2026-03-21 13:07:40"
+      "checked_at": "2026-03-21 13:01",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "e5a3907bb587",
+      "email": "leooscar576wbxj@gmail.com",
+      "password": "qkTJh2QEGF",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 13:01",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
     },
     {
       "id": "6dec66abf6b6",
@@ -352,9 +132,229 @@
       "password": "M6NJrzKU29",
       "status": "正常",
       "country": "香港",
-      "checked_at": "2026-03-21 12:59:00",
+      "checked_at": "2026-03-21 13:00",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "9d23efde070f",
+      "email": "larrysc28ilg@icloud.com",
+      "password": "kePwT6E5MP",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:55",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "4b87d9d21860",
+      "email": "jonrsf83125@icloud.com",
+      "password": "d4m42xUBnM",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:53",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "2de9017abe63",
+      "email": "adamaxt65635@icloud.com",
+      "password": "5Cm3zK2aBT",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:52",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "bc66c7738d9d",
+      "email": "esmeharley260rhdy@gmail.com",
+      "password": "q8Ff617kDK",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:52",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "67364912cc9f",
+      "email": "kuq6ji@163.com",
+      "password": "B4traFUFqj",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:51",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "6ddc1493afcd",
+      "email": "buddinganvil8143@icloud.com",
+      "password": "AvQ4YawSTr",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:50",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "29aa5e34e57b",
+      "email": "renatahadnotqw@hotmail.com",
+      "password": "TDPywJ7Sd4sw",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:48",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "217d5532775b",
+      "email": "carllxe51009@icloud.com",
+      "password": "BtrhhJ6kK5",
+      "status": "正常",
+      "country": "",
+      "checked_at": "2026-03-21 12:48",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "617ce2f243c5",
+      "email": "depletesolstice13615@icloud.com",
+      "password": "6vR5e8XUrN",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:47",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "53f278ff3d10",
+      "email": "bwxkaren32984@icloud.com",
+      "password": "1nGuJYyDyQ",
+      "status": "正常",
+      "country": "",
+      "checked_at": "2026-03-21 12:47",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "1a2b6432f2d2",
+      "email": "nbrvc11222@hotmail.com",
+      "password": "RVdE5JjDWs",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:46",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "17114348e22e",
+      "email": "myzpena@hotmail.com",
+      "password": "DkDAY9KxRB",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:44",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "8521410c84bb",
+      "email": "sharonvzz39000@icloud.com",
+      "password": "wmPja7rvbe",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:39",
+      "source": "ios.juzixp.com",
+      "updated_at": "2026-03-21 13:08:40"
+    },
+    {
+      "id": "0b21129db149",
+      "email": "etcsuma@hotmail.com",
+      "password": "sw6B#IO9",
+      "status": "正常",
+      "country": "美国",
+      "checked_at": "2026-03-21 12:42:00",
+      "source": "applexp/美区",
+      "updated_at": "2026-03-21 13:08:41"
+    },
+    {
+      "id": "40b3ec9edd2f",
+      "email": "rennai8860642@163.com",
+      "password": "TDDYSp5FMyTF",
+      "status": "正常",
+      "country": "日本",
+      "checked_at": "2026-03-21 13:02:00",
+      "source": "applexp/日区",
+      "updated_at": "2026-03-21 13:08:42"
+    },
+    {
+      "id": "a0ed7dfa6084",
+      "email": "zourao55555555@163.com",
+      "password": "hqRY0U2!",
+      "status": "正常",
+      "country": "日本",
+      "checked_at": "2026-03-21 12:57:00",
+      "source": "applexp/日区",
+      "updated_at": "2026-03-21 13:08:42"
+    },
+    {
+      "id": "6a93e8c9d537",
+      "email": "txrjawe42453@hotmail.com",
+      "password": "Cf3zeASBn4",
+      "status": "正常",
+      "country": "日本",
+      "checked_at": "2026-03-21 12:48:00",
+      "source": "applexp/日区",
+      "updated_at": "2026-03-21 13:08:42"
+    },
+    {
+      "id": "a215b05a1bbe",
+      "email": "longsha433399@163.com",
+      "password": "TDBTk5tgMSYf",
+      "status": "正常",
+      "country": "日本",
+      "checked_at": "2026-03-21 12:46:00",
+      "source": "applexp/日区",
+      "updated_at": "2026-03-21 13:08:42"
+    },
+    {
+      "id": "e1ec364472d6",
+      "email": "cookalexandergraeme@gmail.com",
+      "password": "Bc538672",
+      "status": "正常",
+      "country": "日本",
+      "checked_at": "2026-03-21 12:44:00",
+      "source": "applexp/日区",
+      "updated_at": "2026-03-21 13:08:42"
+    },
+    {
+      "id": "6ae79ba1fac0",
+      "email": "hudsonefrdarnold@outlook.com",
+      "password": "r#A67L6c",
+      "status": "正常",
+      "country": "日本",
+      "checked_at": "2026-03-21 12:40:00",
+      "source": "applexp/日区",
+      "updated_at": "2026-03-21 13:08:42"
+    },
+    {
+      "id": "768e8b61c1da",
+      "email": "uyeswruopty4@icloud.com",
+      "password": "8sDAKrfnN7",
+      "status": "正常",
+      "country": "香港",
+      "checked_at": "2026-03-21 13:08:00",
       "source": "applexp/港区",
-      "updated_at": "2026-03-21 13:07:40"
+      "updated_at": "2026-03-21 13:08:41"
+    },
+    {
+      "id": "8584f2573c52",
+      "email": "vuetok33093@hotmail.com",
+      "password": "68yC8W3SHR",
+      "status": "正常",
+      "country": "香港",
+      "checked_at": "2026-03-21 13:08:00",
+      "source": "applexp/港区",
+      "updated_at": "2026-03-21 13:08:41"
     },
     {
       "id": "b1c3ced000aa",
@@ -362,9 +362,9 @@
       "password": "Vx874362",
       "status": "正常",
       "country": "香港",
-      "checked_at": "2026-03-21 12:42:00",
+      "checked_at": "2026-03-21 12:43:00",
       "source": "applexp/港区",
-      "updated_at": "2026-03-21 13:07:40"
+      "updated_at": "2026-03-21 13:08:41"
     },
     {
       "id": "c5c4d61d2427",
@@ -372,9 +372,9 @@
       "password": "CBRd5v&3",
       "status": "正常",
       "country": "香港",
-      "checked_at": "2026-03-21 12:39:00",
+      "checked_at": "2026-03-21 12:40:00",
       "source": "applexp/港区",
-      "updated_at": "2026-03-21 13:07:40"
+      "updated_at": "2026-03-21 13:08:41"
     },
     {
       "id": "b5633e86835f",
@@ -384,7 +384,7 @@
       "country": "美国",
       "checked_at": "2025-10-15 20:34:12",
       "source": "applexp/小火箭",
-      "updated_at": "2026-03-21 13:07:43"
+      "updated_at": "2026-03-21 13:08:43"
     },
     {
       "id": "3b801d4d90c7",
